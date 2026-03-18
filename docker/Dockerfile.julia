@@ -7,11 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc-dev &&
 
 # Copy project manifest and the local Yield.jl package.
 # Directory structure must mirror the repo layout so the relative path
-# "../examples/Yield.jl" in Project.toml resolves correctly.
+# "../dependencies/Yield.jl" in Project.toml resolves correctly.
 COPY julia/Project.toml julia/
-COPY examples/Yield.jl/ examples/Yield.jl/
+COPY dependencies/Yield.jl/ dependencies/Yield.jl/
 
-RUN julia --project=julia -e "using Pkg; Pkg.instantiate()"
+# Pkg.develop registers the local path dep without hitting the registry,
+# then Pkg.instantiate resolves all registered deps fresh from Project.toml.
+RUN julia --project=julia -e "using Pkg; Pkg.develop(PackageSpec(path=\"dependencies/Yield.jl\")); Pkg.instantiate()"
 
 # Install PackageCompiler into the global Julia environment — it is a build
 # tool only and must not appear in Project.toml.
@@ -51,7 +53,7 @@ COPY --from=builder /app/julia/sysimage.so julia/
 COPY --from=builder /app/julia/src julia/src
 
 # Copy the local Yield.jl package (needed at runtime for package loading).
-COPY --from=builder /app/examples/Yield.jl examples/Yield.jl
+COPY --from=builder /app/dependencies/Yield.jl dependencies/Yield.jl
 
 # Data files.
 COPY data data

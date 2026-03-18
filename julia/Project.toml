@@ -8,4 +8,4 @@ Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
 Yield = "3c8e8a2e-1f4b-4b9c-a8d5-6f7e9b2c0d1e"
 
 [sources]
-Yield = {path = "../examples/Yield.jl"}
+Yield = {path = "../dependencies/Yield.jl"}

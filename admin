@@ -24,9 +24,6 @@ case ${1:-help} in
         cd frontend && npm run dev
         ;;
 
-    db)
-        docker compose -f docker/docker-compose.dev.yml up
-        ;;
 
     test)
         julia --project=julia julia/test/runtests.jl
@@ -81,10 +78,7 @@ Layer 1 — Julia + JSON (no infrastructure):
   test-ci             Run all tests once (Julia + frontend), exit code for CI
   build               Build the frontend for production
 
-Layer 2 — Julia native + Postgres in Docker:
-  db                  Start Postgres in Docker (localhost:5432, password: dev)
-
-Layer 3 — Full Docker stack:
+Docker stack:
   up                  Build and start all containers
   down                Stop all containers
 
