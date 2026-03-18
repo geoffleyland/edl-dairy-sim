@@ -11,9 +11,14 @@ services:
       deploy_on_push: true
     dockerfile_path: docker/Dockerfile.julia
     instance_count: 1
-    instance_size_slug: basic-xxs
+    instance_size_slug: basic-xs
     internal_ports:
       - 8080
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 90
+      period_seconds: 15
+      failure_threshold: 3
 
   # Caddy — serves the built Vue frontend and proxies /api/* to backend
   - name: proxy

@@ -58,4 +58,5 @@ COPY --from=builder /app/dependencies/Yield.jl dependencies/Yield.jl
 # Data files.
 COPY data data
 
-CMD ["julia", "--project=julia", "-Jjulia/sysimage.so", "julia/src/main.jl"]
+# CMD ["julia", "--project=julia", "-Jjulia/sysimage.so", "julia/src/main.jl"]
+CMD ["julia", "--project=julia", "julia/src/main.jl"]
