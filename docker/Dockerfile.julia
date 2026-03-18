@@ -41,8 +41,11 @@ FROM julia:1.10
 WORKDIR /app
 ENV JULIA_DEPOT_PATH=/app/.julia
 
-# Copy the compiled package depot so Julia doesn't need to recompile anything.
+# Copy the compiled package depot and make it world-writable.
+# Julia writes pidfiles into the depot even when only loading packages,
+# so the non-root user the container runs as needs write access.
 COPY --from=builder /app/.julia /app/.julia
+RUN chmod -R a+rw /app/.julia
 
 # Copy project definition and the resolved manifest.
 COPY --from=builder /app/julia/Project.toml julia/
