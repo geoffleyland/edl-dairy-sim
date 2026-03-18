@@ -1,0 +1,12 @@
+#! /bin/sh
+
+cmd=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+case $cmd in
+    run | test | "")
+        julia --project=@. -e'using Pkg; Pkg.instantiate(); include("tests/runtests.jl")'
+        ;;
+
+    watch)
+        julia --project=@. -e'using Pkg; Pkg.instantiate(); include("tests/watch-tests.jl")'
+        ;;
+esac

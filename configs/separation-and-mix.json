@@ -1,0 +1,29 @@
+{
+    "components": ["fat", "protein", "lactose"],
+    "quantities": { "powder": 1 },
+    "compositions": {
+        "milk": { "fat": 0.03, "protein": 0.03, "lactose": 0.03 },
+        "lactose": { "fat": 0.00, "protein": 0.00, "lactose": 1.00 },
+        "skim": { "fat": 0.0001 },
+        "sep cream": { "fat": 0.42 },
+        "powder": { "fat": 0.015, "protein": 0.34, "total-solids": 0.95 }
+    },
+    "operations": [
+        {
+            "operation": "separation",
+            "input": "milk",
+            "outputs": ["skim", "sep cream"],
+            "separation-component": "fat"
+        },
+        {
+            "operation": "split",
+            "input": "sep cream",
+            "outputs": ["mix cream", "excess cream"]
+        },
+        {
+            "operation": "mix",
+            "inputs": ["skim", "mix cream", "lactose"],
+            "outputs": ["powder"]
+        }
+    ]
+}

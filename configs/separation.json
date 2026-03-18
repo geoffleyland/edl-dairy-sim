@@ -1,0 +1,17 @@
+{
+    "components": ["fat", "protein", "lactose"],
+    "quantities": { "milk": 1 },
+    "compositions": {
+        "milk": { "fat": 0.03, "protein": 0.03, "lactose": 0.03 },
+        "skim": { "fat": 0.0001 },
+        "cream": { "fat": 0.42 }
+    },
+    "operations": [
+        {
+            "operation": "separation",
+            "input": "milk",
+            "outputs": ["skim", "cream"],
+            "separation-component": "fat"
+        }
+    ]
+}
