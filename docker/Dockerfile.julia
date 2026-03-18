@@ -2,6 +2,7 @@
 FROM julia:1.10 AS builder
 
 WORKDIR /app
+ENV JULIA_DEPOT_PATH=/app/.julia
 
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc-dev && rm -rf /var/lib/apt/lists/*
 
@@ -38,9 +39,10 @@ RUN julia --project=julia -e " \
 FROM julia:1.10
 
 WORKDIR /app
+ENV JULIA_DEPOT_PATH=/app/.julia
 
 # Copy the compiled package depot so Julia doesn't need to recompile anything.
-COPY --from=builder /root/.julia /root/.julia
+COPY --from=builder /app/.julia /app/.julia
 
 # Copy project definition and the resolved manifest.
 COPY --from=builder /app/julia/Project.toml julia/
@@ -58,5 +60,4 @@ COPY --from=builder /app/dependencies/Yield.jl dependencies/Yield.jl
 # Data files.
 COPY data data
 
-# CMD ["julia", "--project=julia", "-Jjulia/sysimage.so", "julia/src/main.jl"]
-CMD ["julia", "--project=julia", "julia/src/main.jl"]
+CMD ["julia", "--project=julia", "-Jjulia/sysimage.so", "julia/src/main.jl"]
