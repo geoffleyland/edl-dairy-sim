@@ -1,0 +1,25 @@
+/*
+ * Ever.Ag brand tokens
+ *
+ * Carry this file to new projects unchanged.
+ * It covers colours, fonts, and the header gradient — everything that makes
+ * a planning tool look like it belongs to the Ever.Ag / ScAIapp family.
+ *
+ * Google Fonts must be loaded in index.html:
+ *   DM Sans (400, 500)    — wordmark
+ *   Noto Sans (400, 500, italic) — prose / "powered by"
+ */
+
+:root {
+  /* Header gradient — left to right, dark navy anchor */
+  --brand-header-gradient: linear-gradient(90deg, #034f93 0%, #003969 100%);
+
+  /* Dropdown / menu background */
+  --brand-menu-bg: #002b57;
+
+  /* Wordmark font (Ever.Ag Data Labs) */
+  --brand-font-heading: 'DM Sans', system-ui, sans-serif;
+
+  /* Prose / "powered by" font */
+  --brand-font-prose: 'Noto Sans', system-ui, sans-serif;
+}

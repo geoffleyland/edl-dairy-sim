@@ -1,0 +1,168 @@
+{
+    "stock_types": [
+        {
+            "name": "Bulls",
+            "id": "bulls"
+        },
+        {
+            "name": "Prime Cows",
+            "id": "prime_cows"
+        },
+        {
+            "name": "Steers",
+            "id": "steers"
+        },
+        {
+            "name": "Angus Bulls",
+            "id": "angus_bulls"
+        }
+    ],
+    "shifts": [
+        {
+            "day": "Mon",
+            "period": "Day",
+            "id": "mon-day"
+        },
+        {
+            "day": "Mon",
+            "period": "Night",
+            "id": "mon-night"
+        },
+        {
+            "day": "Tue",
+            "period": "Day",
+            "id": "tue-day"
+        },
+        {
+            "day": "Wed",
+            "period": "Day",
+            "id": "wed-day"
+        },
+        {
+            "day": "Thu",
+            "period": "Day",
+            "id": "thu-day"
+        },
+        {
+            "day": "Fri",
+            "period": "Day",
+            "id": "fri-day"
+        }
+    ],
+    "plants": [
+        {
+            "name": "Riverdale",
+            "shifts": [
+                {
+                    "shift_id": "mon-day",
+                    "capacity": 300
+                },
+                {
+                    "shift_id": "mon-night",
+                    "capacity": 150
+                },
+                {
+                    "shift_id": "tue-day",
+                    "capacity": 300
+                },
+                {
+                    "shift_id": "wed-day",
+                    "capacity": 300
+                },
+                {
+                    "shift_id": "thu-day",
+                    "capacity": 300
+                },
+                {
+                    "shift_id": "fri-day",
+                    "capacity": 200
+                }
+            ],
+            "id": "p1"
+        },
+        {
+            "name": "Northgate",
+            "shifts": [
+                {
+                    "shift_id": "mon-day",
+                    "capacity": 250
+                },
+                {
+                    "shift_id": "tue-day",
+                    "capacity": 250
+                },
+                {
+                    "shift_id": "wed-day",
+                    "capacity": 250
+                },
+                {
+                    "shift_id": "thu-day",
+                    "capacity": 250
+                },
+                {
+                    "shift_id": "fri-day",
+                    "capacity": 200
+                }
+            ],
+            "id": "p2"
+        }
+    ],
+    "demand_types": [
+        {
+            "name": "Prime",
+            "id": "prime"
+        },
+        {
+            "name": "Manufacturing",
+            "id": "manufacturing"
+        },
+        {
+            "name": "Angus",
+            "id": "angus"
+        }
+    ],
+    "substitutions": [
+        {
+            "demand_type_id": "prime",
+            "stock_type_id": "bulls"
+        },
+        {
+            "demand_type_id": "manufacturing",
+            "stock_type_id": "bulls"
+        },
+        {
+            "demand_type_id": "prime",
+            "stock_type_id": "prime_cows"
+        },
+        {
+            "demand_type_id": "manufacturing",
+            "stock_type_id": "steers"
+        },
+        {
+            "demand_type_id": "angus",
+            "stock_type_id": "angus_bulls"
+        }
+    ],
+    "farms": [
+        {
+            "name": "Sunny Ridge",
+            "tier": "shareholder",
+            "id": "f1"
+        },
+        {
+            "name": "Green Acres",
+            "tier": "shareholder",
+            "id": "f2"
+        },
+        {
+            "name": "Smith Station",
+            "tier": "standard",
+            "id": "f3"
+        },
+        {
+            "name": "Hillside",
+            "tier": "standard",
+            "id": "f4"
+        }
+    ]
+}

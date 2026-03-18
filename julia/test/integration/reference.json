@@ -1,0 +1,10 @@
+{
+  "stock_types": [{ "id": "bulls", "name": "Bulls" }],
+  "shifts":      [{ "id": "mon-day", "day": "Mon", "period": "Day" }],
+  "farms":       [{ "id": "f1", "name": "Sunny Ridge" }],
+  "plants": [{
+    "id": "p1",
+    "name": "Riverdale",
+    "shifts": [{ "shift_id": "mon-day", "capacity": 300 }]
+  }]
+}

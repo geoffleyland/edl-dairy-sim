@@ -1,0 +1,10 @@
+{
+  "_comment": "Capacity binds: supply (200) > capacity (100) — only capacity allocated.",
+  "plants": [
+    { "id": "p1", "shifts": [{ "shift_id": "mon-day", "capacity": 100 }] }
+  ],
+  "supplies": [
+    { "farm_id": "f1", "stock_type_id": "bulls", "quantity": 200 }
+  ],
+  "expected_objective": 100
+}

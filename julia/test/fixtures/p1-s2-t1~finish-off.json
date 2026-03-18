@@ -1,0 +1,16 @@
+{
+  "_comment": "Finish it off — capacity binds: 60 already committed to shift1 (capacity 60); shift2 has 40 capacity; supply (200) ample. Solver fills shift2 → total 100.",
+  "plants": [
+    { "id": "p1", "shifts": [
+      { "shift_id": "shift1", "capacity": 60 },
+      { "shift_id": "shift2", "capacity": 40 }
+    ]}
+  ],
+  "supplies": [
+    { "farm_id": "f1", "stock_type_id": "bulls", "quantity": 200 }
+  ],
+  "deliveries": [
+    { "farm_id": "f1", "stock_type_id": "bulls", "plant_id": "p1", "shift_id": "shift1", "quantity": 60 }
+  ],
+  "expected_objective": 100
+}

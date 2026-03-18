@@ -1,0 +1,18 @@
+# Julia
+julia/Manifest.toml
+*.jl.cov
+*.jl.mem
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Local config (contains DB connection strings etc.)
+config.local.toml
+
+# macOS
+.DS_Store
+
+# Code examples
+examples

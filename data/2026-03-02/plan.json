@@ -1,0 +1,77 @@
+{
+    "week": "2026-03-02",
+    "deliveries": [
+        {
+            "shift_id": "wed-day",
+            "farm_id": "f2",
+            "stock_type_id": "prime_cows",
+            "plant_id": "p1",
+            "quantity": 200,
+            "auto-allocated": true
+        },
+        {
+            "shift_id": "tue-day",
+            "farm_id": "f1",
+            "stock_type_id": "bulls",
+            "plant_id": "p1",
+            "quantity": 80,
+            "auto-allocated": true
+        },
+        {
+            "shift_id": "fri-day",
+            "farm_id": "f3",
+            "stock_type_id": "bulls",
+            "plant_id": "p1",
+            "quantity": 40,
+            "auto-allocated": true
+        },
+        {
+            "shift_id": "mon-day",
+            "farm_id": "f3",
+            "stock_type_id": "steers",
+            "plant_id": "p1",
+            "quantity": 100,
+            "auto-allocated": true
+        },
+        {
+            "shift_id": "wed-day",
+            "farm_id": "f4",
+            "stock_type_id": "steers",
+            "plant_id": "p1",
+            "quantity": 80,
+            "auto-allocated": true
+        },
+        {
+            "shift_id": "mon-day",
+            "farm_id": "f1",
+            "stock_type_id": "steers",
+            "plant_id": "p2",
+            "quantity": 60,
+            "auto-allocated": true
+        },
+        {
+            "shift_id": "mon-night",
+            "farm_id": "f2",
+            "stock_type_id": "steers",
+            "plant_id": "p1",
+            "quantity": 150,
+            "auto-allocated": true
+        },
+        {
+            "shift_id": "fri-day",
+            "farm_id": "f1",
+            "stock_type_id": "prime_cows",
+            "plant_id": "p1",
+            "quantity": 120,
+            "auto-allocated": true
+        },
+        {
+            "shift_id": "thu-day",
+            "farm_id": "f4",
+            "stock_type_id": "prime_cows",
+            "plant_id": "p1",
+            "quantity": 90,
+            "auto-allocated": true
+        }
+    ]
+}

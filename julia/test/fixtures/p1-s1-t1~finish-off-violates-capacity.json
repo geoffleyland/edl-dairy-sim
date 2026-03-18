@@ -1,0 +1,13 @@
+{
+  "_comment": "Finish it off — existing delivery (60) exceeds shift capacity (50); model honours it, raises effective capacity to 60, and adds nothing. Objective = 60.",
+  "plants": [
+    { "id": "p1", "shifts": [{ "shift_id": "mon-day", "capacity": 50 }] }
+  ],
+  "supplies": [
+    { "farm_id": "f1", "stock_type_id": "bulls", "quantity": 200 }
+  ],
+  "deliveries": [
+    { "farm_id": "f1", "stock_type_id": "bulls", "plant_id": "p1", "shift_id": "mon-day", "quantity": 60 }
+  ],
+  "expected_objective": 60
+}

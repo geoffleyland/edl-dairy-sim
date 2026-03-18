@@ -1,0 +1,59 @@
+# Stage 1: Build sysimage (needs gcc for PackageCompiler to link native code)
+FROM julia:1.10 AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc-dev && rm -rf /var/lib/apt/lists/*
+
+# Copy project manifest and the local Yield.jl package.
+# Directory structure must mirror the repo layout so the relative path
+# "../examples/Yield.jl" in Project.toml resolves correctly.
+COPY julia/Project.toml julia/
+COPY examples/Yield.jl/ examples/Yield.jl/
+
+RUN julia --project=julia -e "using Pkg; Pkg.instantiate()"
+
+# Install PackageCompiler into the global Julia environment — it is a build
+# tool only and must not appear in Project.toml.
+RUN julia -e "using Pkg; Pkg.add(\"PackageCompiler\")"
+
+# Copy source and precompile workload.
+COPY julia/src/ julia/src/
+COPY julia/precompile_workload.jl julia/
+
+# Build the sysimage. This is the slow step (~2-5 min) but only reruns when
+# Project.toml or the workload changes.
+RUN julia --project=julia -e " \
+    using PackageCompiler; \
+    create_sysimage( \
+        [:Oxygen, :HTTP, :ArgParse, :JSON3, :Dates, :DataStructures], \
+        sysimage_path = \"julia/sysimage.so\", \
+        precompile_execution_file = \"julia/precompile_workload.jl\" \
+    ) \
+"
+
+# Stage 2: Runtime — no gcc, no PackageCompiler, minimal image
+FROM julia:1.10
+
+WORKDIR /app
+
+# Copy the compiled package depot so Julia doesn't need to recompile anything.
+COPY --from=builder /root/.julia /root/.julia
+
+# Copy project definition and the resolved manifest.
+COPY --from=builder /app/julia/Project.toml julia/
+COPY --from=builder /app/julia/Manifest.toml julia/
+
+# Copy the precompiled sysimage — first request is now fast.
+COPY --from=builder /app/julia/sysimage.so julia/
+
+# Copy source.
+COPY --from=builder /app/julia/src julia/src
+
+# Copy the local Yield.jl package (needed at runtime for package loading).
+COPY --from=builder /app/examples/Yield.jl examples/Yield.jl
+
+# Data files.
+COPY data data
+
+CMD ["julia", "--project=julia", "-Jjulia/sysimage.so", "julia/src/main.jl"]

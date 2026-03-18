@@ -1,0 +1,12 @@
+{
+  "_comment": "Two plants, two farms, two stock types. Tests that supply and capacity constraints combine correctly. Total supply = 80 + 40 = 120; total capacity = 70 + 60 = 130. Supply is the binding constraint — expect 120.",
+  "plants": [
+    { "id": "p1", "shifts": [{ "shift_id": "mon-day", "capacity": 70 }] },
+    { "id": "p2", "shifts": [{ "shift_id": "mon-day", "capacity": 60 }] }
+  ],
+  "supplies": [
+    { "farm_id": "f1", "stock_type_id": "bulls",      "quantity": 80 },
+    { "farm_id": "f2", "stock_type_id": "prime_cows", "quantity": 40 }
+  ],
+  "expected_objective": 120
+}

@@ -1,0 +1,29 @@
+name: muster
+region: syd   # change to your preferred region (nyc, lon, sgp, …)
+
+services:
+
+  # Julia API backend — internal only; Caddy proxies to it
+  - name: backend
+    github:
+      repo: geoffleyland/edl-dairy-sim
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: docker/Dockerfile.julia
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    internal_ports:
+      - 8080
+
+  # Caddy — serves the built Vue frontend and proxies /api/* to backend
+  - name: proxy
+    github:
+      repo: geoffleyland/edl-dairy-sim
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: docker/Dockerfile.caddy
+    http_port: 80
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    routes:
+      - path: /

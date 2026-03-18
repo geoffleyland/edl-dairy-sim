@@ -1,0 +1,13 @@
+{
+    "week": "2026-03-09",
+    "supply": [
+        { "farm_id": "f1", "stock_type_id": "bulls",      "quantity": 60  },
+        { "farm_id": "f1", "stock_type_id": "prime_cows", "quantity": 100 },
+        { "farm_id": "f2", "stock_type_id": "prime_cows", "quantity": 180 },
+        { "farm_id": "f2", "stock_type_id": "steers",     "quantity": 120 },
+        { "farm_id": "f3", "stock_type_id": "bulls",      "quantity": 50  },
+        { "farm_id": "f3", "stock_type_id": "steers",     "quantity": 90  },
+        { "farm_id": "f4", "stock_type_id": "prime_cows", "quantity": 70  },
+        { "farm_id": "f4", "stock_type_id": "steers",     "quantity": 110 }
+    ]
+}

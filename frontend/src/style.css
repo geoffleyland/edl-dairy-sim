@@ -1,0 +1,97 @@
+@import './brand.css';
+
+/* ── Reset ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #app       { height: 100%; }
+
+/* ── Design tokens ────────────────────────────────────────── */
+:root {
+  --color-bg:           #ffffff;
+  --color-bg-alt:       #f8f9fa;
+  --color-border:       #dee2e6;
+  --color-text:         #212529;
+  --color-text-muted:   #6c757d;
+  --color-text-faint:   #adb5bd;
+  --color-primary:      #0d6efd;
+  --color-primary-dark: #0b5ed7;
+  --color-danger:       #dc3545;
+  --color-warning:      #fd7e14;
+  --color-focus-ring:   rgba(13, 110, 253, .25);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+
+  --color-text-secondary: #495057;  /* dimmed but still readable; between text and muted */
+  --color-border-subtle:  #f0f0f0;  /* lighter divider for body rows */
+
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+/* Usage: <div class="tabs"><button class="tab-btn active">…</button></div> */
+.tab-btn {
+  padding: 6px 20px;
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--color-bg-alt);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.tab-btn:hover  { background: #e9ecef; color: var(--color-text); }
+.tab-btn.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
+/* ── Tier badge ───────────────────────────────────────────── */
+.tier-star {
+  color: var(--color-warning);
+  margin-right: 3px;
+  font-size: 11px;
+}
+
+/* ── Numeric inputs ────────────────────────────────────────── */
+/* Ghost style: number renders normally; border/background appear on hover to signal editability */
+.num-input {
+  font-size: inherit;
+  font-weight: inherit;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-sm);
+  -moz-appearance: textfield;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  text-align: right;
+  background: transparent;
+  outline: none;
+}
+.num-input::-webkit-inner-spin-button,
+.num-input::-webkit-outer-spin-button { opacity: 0; }
+.num-input:hover { border-color: var(--color-border); background: var(--color-bg); }
+.num-input:focus { border-color: #86b7fe; background: var(--color-bg);
+                   box-shadow: 0 0 0 2px var(--color-focus-ring); }
+.num-input.is-overridden       { border-color: var(--color-warning); background: var(--color-bg); }
+.num-input.is-overridden:hover { border-color: var(--color-warning); }
+
+/* Instant tooltip — wraps an input; tooltip text lives in data-hint */
+.hint-wrap { position: relative; display: inline-block; }
+.hint-wrap[data-hint]::after {
+  content: attr(data-hint);
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 5px);
+  right: 0;
+  background: rgba(0, 0, 0, .75);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 400;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+.hint-wrap[data-hint]:hover::after { display: block; }
+

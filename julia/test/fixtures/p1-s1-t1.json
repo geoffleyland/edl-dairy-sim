@@ -1,0 +1,10 @@
+{
+  "_comment": "Base case: 1 plant, 1 supply, 1 shift. Supply (60) < capacity (100) — all supply allocated.",
+  "plants": [
+    { "id": "p1", "shifts": [{ "shift_id": "mon-day", "capacity": 100 }] }
+  ],
+  "supplies": [
+    { "farm_id": "f1", "stock_type_id": "bulls", "quantity": 60 }
+  ],
+  "expected_objective": 60
+}

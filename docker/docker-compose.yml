@@ -1,0 +1,20 @@
+name: production-planning
+
+services:
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.julia
+    restart: unless-stopped
+
+  proxy:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    restart: unless-stopped

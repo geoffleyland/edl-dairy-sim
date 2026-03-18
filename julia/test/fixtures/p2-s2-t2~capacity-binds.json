@@ -1,0 +1,12 @@
+{
+  "_comment": "Two plants, two farms — but total capacity (50 + 50 = 100) < total supply (80 + 40 = 120). Capacity is the binding constraint — expect 100.",
+  "plants": [
+    { "id": "p1", "shifts": [{ "shift_id": "mon-day", "capacity": 50 }] },
+    { "id": "p2", "shifts": [{ "shift_id": "mon-day", "capacity": 50 }] }
+  ],
+  "supplies": [
+    { "farm_id": "f1", "stock_type_id": "bulls",      "quantity": 80 },
+    { "farm_id": "f2", "stock_type_id": "prime_cows", "quantity": 40 }
+  ],
+  "expected_objective": 100
+}

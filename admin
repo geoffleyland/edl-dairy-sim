@@ -1,0 +1,98 @@
+#!/bin/bash
+
+case ${1:-help} in
+
+    setup)
+        echo "==> Installing Julia packages..."
+        julia --project=julia -e "using Pkg; Pkg.resolve(); Pkg.instantiate()"
+        echo "==> Installing frontend packages..."
+        cd frontend && npm install
+        ;;
+
+    julia)
+        # Hot-reload dev server. Changes to julia/src/ hot-reload routes.
+        # Changes to examples/Yield.jl/src/ trigger a full process restart
+        # (compiled packages can't be hot-reloaded).
+        while true; do
+            julia --project=julia -i julia/src/dev.jl
+            echo "==> Restarting Julia server..."
+        done
+        ;;
+
+    dev)
+        open http://localhost:5173/
+        cd frontend && npm run dev
+        ;;
+
+    db)
+        docker compose -f docker/docker-compose.dev.yml up
+        ;;
+
+    test)
+        julia --project=julia julia/test/runtests.jl
+        ;;
+
+    watch-julia-tests)
+        julia --project=julia julia/test/runtests.jl --watch
+        ;;
+
+    watch-fe-tests)
+        cd frontend && watchexec --exts ts,vue --clear -- npm test
+        ;;
+
+    test-ci)
+        status=0
+        julia --project=julia julia/test/runtests.jl   || status=1
+        (cd frontend && npm test)                       || status=1
+        exit $status
+        ;;
+
+    build)
+        cd frontend && npm run build
+        ;;
+
+    up)
+        # Full production stack in Docker (Caddy + Julia backend).
+        # Note: opens browser immediately — wait for containers to finish building.
+        open http://localhost:80/
+        docker compose -f docker/docker-compose.yml up --build
+        ;;
+
+    down)
+        docker compose -f docker/docker-compose.yml down
+        ;;
+
+    help | *)
+        cat <<'EOF'
+Usage: ./admin <command>
+
+Prerequisites — install before running setup (see README.md for details):
+  julia   https://julialang.org/downloads/   (1.11+)
+  npm     https://nodejs.org/                (20+, via Node.js)
+  docker  https://www.docker.com/            (only needed for Layer 2+)
+
+Layer 1 — Julia + JSON (no infrastructure):
+  setup               Install all dependencies (run once after clone)
+  julia               Start the Julia API server with hot-reload
+  dev                 Start the Vite frontend dev server
+  test                Run Julia tests once
+  watch-julia-tests   Run Julia tests in watch mode (re-runs on .jl changes)
+  watch-fe-tests      Run type check + tests on every .ts/.vue change (watchexec)
+  test-ci             Run all tests once (Julia + frontend), exit code for CI
+  build               Build the frontend for production
+
+Layer 2 — Julia native + Postgres in Docker:
+  db                  Start Postgres in Docker (localhost:5432, password: dev)
+
+Layer 3 — Full Docker stack:
+  up                  Build and start all containers
+  down                Stop all containers
+
+For local development, run in two terminals:
+  ./admin julia
+  ./admin dev
+
+EOF
+        ;;
+
+esac

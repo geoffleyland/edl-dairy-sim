@@ -1,0 +1,19 @@
+# HTTP only for now.
+# To add HTTPS: replace :80 with your domain name (e.g. planning.example.com)
+# and Caddy will obtain a Let's Encrypt certificate automatically.
+:80 {
+    # Proxy API requests to the Julia backend.
+    # The /api prefix is stripped before forwarding.
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy backend:8080
+    }
+
+    # Serve the built Vue frontend.
+    # Unmatched paths fall back to index.html for client-side routing.
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}
