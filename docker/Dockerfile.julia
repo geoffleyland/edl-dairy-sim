@@ -41,11 +41,12 @@ FROM julia:1.10
 WORKDIR /app
 ENV JULIA_DEPOT_PATH=/app/.julia
 
-# Copy the compiled package depot and make it world-writable.
-# Julia writes pidfiles into the depot even when only loading packages,
-# so the non-root user the container runs as needs write access.
+# Create a non-root user so we control exactly who runs the process.
+RUN useradd --create-home --shell /bin/bash app
+
+# Copy the compiled package depot and fix ownership.
 COPY --from=builder /app/.julia /app/.julia
-RUN chmod -R a+rw /app/.julia
+RUN chown -R app:app /app/.julia
 
 # Copy project definition and the resolved manifest.
 COPY --from=builder /app/julia/Project.toml julia/
@@ -62,5 +63,12 @@ COPY --from=builder /app/dependencies/Yield.jl dependencies/Yield.jl
 
 # Data files.
 COPY data data
+
+# Fix ownership of everything under /app.
+RUN chown -R app:app /app
+
+# Smoke test: verify Julia can load packages and the sysimage as the runtime user.
+USER app
+RUN julia --project=julia -Jjulia/sysimage.so -e 'using Oxygen, HTTP, JSON3, DataStructures; println(stderr, "smoke test ok")'
 
 CMD ["julia", "--project=julia", "-Jjulia/sysimage.so", "julia/src/main.jl"]
