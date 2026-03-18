@@ -1,4 +1,4 @@
-name: muster
+name: edl-dairy-sim
 region: syd   # change to your preferred region (nyc, lon, sgp, …)
 
 services:
