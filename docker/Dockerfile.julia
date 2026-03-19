@@ -69,6 +69,6 @@ RUN chown -R app:app /app
 
 # Smoke test: verify Julia can load packages and the sysimage as the runtime user.
 USER app
-RUN julia --project=julia -Jjulia/sysimage.so -e 'using Oxygen, HTTP, JSON3, DataStructures; println(stderr, "smoke test ok")'
+RUN julia --project=julia -Jjulia/sysimage.so -e 'using Oxygen, HTTP, JSON3, DataStructures, Yield; println(stderr, "smoke test ok")'
 
-CMD ["/bin/sh", "-c", "id && julia --project=julia -Jjulia/sysimage.so julia/src/main.jl"]
+CMD ["julia", "--project=julia", "-Jjulia/sysimage.so", "julia/src/main.jl"]
