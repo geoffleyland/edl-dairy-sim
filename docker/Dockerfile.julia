@@ -29,7 +29,7 @@ COPY julia/precompile_workload.jl julia/
 RUN julia --project=julia -e " \
     using PackageCompiler; \
     create_sysimage( \
-        [:Oxygen, :HTTP, :ArgParse, :JSON3, :Dates, :DataStructures], \
+        [:Oxygen, :HTTP, :ArgParse, :JSON3, :Dates, :DataStructures, :Yield], \
         sysimage_path = \"julia/sysimage.so\", \
         precompile_execution_file = \"julia/precompile_workload.jl\" \
     ) \
