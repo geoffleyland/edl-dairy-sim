@@ -2,47 +2,13 @@
 import * as echarts from 'echarts'
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useSimulate } from '../useSimulate'
-import type { SiteConfig } from '../types'
+import type { SiteConfig, Block, Delivery } from '../types'
+import { SILO_COLORS, RATE_FIELDS, blockColor, modesForType, blockToApi, deliveryToIntakes } from '../domain'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const HORIZON  = 24
-const TRUCK_KG = 30_000
-
-// Silo colours — shared with chart lines so bars match chart.
-const SILO_COLORS: Record<string, string> = {
-  'raw-milk':             '#3b82f6',
-  'skim':                 '#0ea5e9',
-  'cream':                '#f59e0b',
-  'buttermilk':           '#f97316',
-  'condensed-skim':       '#0d9488',
-  'condensed-buttermilk': '#d97706',
-}
-
-// Which silo is the primary input for each machine type + mode.
-const INPUT_SILO: Record<string, Record<string, string>> = {
-  'separator':    { 'running':    'raw-milk' },
-  'butter-plant': { 'running':    'cream' },
-  'condenser':    { 'skim':       'skim',           'buttermilk': 'buttermilk' },
-  'drier':        { 'smp':        'condensed-skim', 'bmp':        'condensed-buttermilk' },
-}
-
-function blockColor(machineType: string, mode: string): string {
-  return SILO_COLORS[INPUT_SILO[machineType]?.[mode] ?? ''] ?? '#6b7280'
-}
-
+const HORIZON    = 24
 const AXIS_TICKS = [0, 4, 8, 12, 16, 20, 24]
-
-// Rate fields per machine type — shown in the rate column on the right.
-interface RateField { key: string; label: string }
-const RATE_FIELDS: Record<string, RateField[]> = {
-  'separator':    [{ key: 'rate_kg_per_hour',            label: '' }],
-  'butter-plant': [{ key: 'rate_kg_per_hour',            label: '' }],
-  'condenser':    [{ key: 'skim_rate_kg_per_hour',       label: 'Skim' },
-                   { key: 'buttermilk_rate_kg_per_hour', label: 'BM'   }],
-  'drier':        [{ key: 'smp_rate_kg_per_hour',        label: 'SMP'  },
-                   { key: 'bmp_rate_kg_per_hour',        label: 'BMP'  }],
-}
 
 // ── Site config ─────────────────────────────────────────────────────────────
 
@@ -50,21 +16,14 @@ const siteConfig  = ref<SiteConfig | null>(null)
 const configError = ref<string | null>(null)
 
 interface MachineDef { id: string; name: string; type: string; modes: string[] }
-interface SiloDef    { id: string; name: string; volume_kg: number }
 
-const machineDefs = computed<MachineDef[]>(() => {
-  if (!siteConfig.value) return []
-  return (siteConfig.value.machines as Array<{ id: string; name: string; type: string }>).map(m => ({
-    id: m.id, name: m.name, type: m.type,
-    modes: m.type === 'condenser' ? ['skim', 'buttermilk']
-         : m.type === 'drier'     ? ['smp',  'bmp']
-         : ['running'],
+const machineDefs = computed<MachineDef[]>(() =>
+  (siteConfig.value?.machines ?? []).map(m => ({
+    id: m.id, name: m.name, type: m.type, modes: modesForType(m.type),
   }))
-})
-
-const siloDefs = computed<SiloDef[]>(() =>
-  siteConfig.value ? (siteConfig.value.silos as SiloDef[]) : []
 )
+
+const siloDefs = computed(() => siteConfig.value?.silos ?? [])
 
 onMounted(async () => {
   try {
@@ -103,8 +62,6 @@ function setMachineRate(machineId: string, key: string, kg: number) {
 
 // ── Schedule blocks ──────────────────────────────────────────────────────────
 
-interface Block { id: string; machineId: string; mode: string; startHr: number; endHr: number }
-
 const blocks = ref<Block[]>([
   { id: '1', machineId: 'separator', mode: 'running', startHr: 0, endHr: 22 },
   { id: '2', machineId: 'condenser', mode: 'skim',    startHr: 2, endHr: 22 },
@@ -115,8 +72,6 @@ function blocksFor(machineId: string) { return blocks.value.filter(b => b.machin
 function removeBlock(id: string)      { blocks.value = blocks.value.filter(b => b.id !== id) }
 
 // ── Deliveries ───────────────────────────────────────────────────────────────
-
-interface Delivery { id: string; startHr: number; endHr: number; truckloads: number }
 
 const rawMilkDeliveries = ref<Delivery[]>([
   { id: 'd1', startHr: 0, endHr: 8, truckloads: 4 },
@@ -321,23 +276,13 @@ function triggerSim() {
   const cfg = siteConfig.value
   if (!cfg) return
 
-  const toIntakes = (deliveries: Delivery[], siloId: string) =>
-    deliveries
-      .filter(d => d.endHr > d.startHr)
-      .map(d => ({
-        silo_id:        siloId,
-        start_hr:       d.startHr,
-        end_hr:         d.endHr,
-        rate_kg_per_hr: (d.truckloads * TRUCK_KG) / (d.endHr - d.startHr),
-      }))
-
   run(
     cfg.process as Record<string, unknown>,
     [
-      ...toIntakes(rawMilkDeliveries.value, 'raw-milk'),
-      ...toIntakes(creamDeliveries.value,   'cream'),
+      ...deliveryToIntakes(rawMilkDeliveries.value, 'raw-milk'),
+      ...deliveryToIntakes(creamDeliveries.value,   'cream'),
     ],
-    blocks.value.map(b => ({ machine_id: b.machineId, mode: b.mode, start_hr: b.startHr, end_hr: b.endHr })),
+    blocks.value.map(blockToApi),
     HORIZON,
     { ...machineRates },
   )

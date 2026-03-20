@@ -19,6 +19,9 @@ export async function postJSON<T>(url: string, body?: unknown): Promise<T> {
     headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
     body:    body !== undefined ? JSON.stringify(body) : undefined,
   })
-  if (!response.ok) throw new Error(`POST ${url}: HTTP ${response.status}`)
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({})) as { error?: string }
+    throw new Error(err.error ?? `POST ${url}: HTTP ${response.status}`)
+  }
   return response.json() as Promise<T>
 }

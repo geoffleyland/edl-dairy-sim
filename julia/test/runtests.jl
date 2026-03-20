@@ -197,6 +197,49 @@ function run_tests()
                 @test sep_fx["cream"]    ≈  +2000.0
             end
 
+            @testset "compute_effects condenser" begin
+                machines = [Dict{String, Any}(
+                    "id"                          => "cond",
+                    "type"                        => "condenser",
+                    "skim_rate_kg_per_hour"       => 10000,
+                    "buttermilk_rate_kg_per_hour" => 5000,
+                )]
+                # r_skim = 0.2 (1 kg skim → 0.2 kg condensed-skim)
+                # r_bm   = 0.25
+                quantities = Dict(
+                    "skim" => 1.0, "condensed-skim"        => 0.2,
+                    "buttermilk" => 1.0, "condensed-buttermilk" => 0.25,
+                )
+
+                fx = compute_effects(machines, quantities)
+
+                skim_fx = fx["cond"]["skim"]
+                @test skim_fx["skim"]            ≈ -10000.0
+                @test skim_fx["condensed-skim"]  ≈  +2000.0   # 10000 * 0.2
+
+                bm_fx = fx["cond"]["buttermilk"]
+                @test bm_fx["buttermilk"]              ≈ -5000.0
+                @test bm_fx["condensed-buttermilk"]    ≈ +1250.0  # 5000 * 0.25
+            end
+
+            @testset "compute_effects drier" begin
+                machines = [Dict{String, Any}(
+                    "id"                   => "dry",
+                    "type"                 => "drier",
+                    "smp_rate_kg_per_hour" => 8000,
+                    "bmp_rate_kg_per_hour" => 4000,
+                )]
+                quantities = Dict{String, Float64}()  # drier effects don't use quantities
+
+                fx = compute_effects(machines, quantities)
+
+                @test fx["dry"]["smp"]["condensed-skim"]        ≈ -8000.0
+                @test fx["dry"]["bmp"]["condensed-buttermilk"]  ≈ -4000.0
+                # Drier must not affect skim or buttermilk directly
+                @test !haskey(fx["dry"]["smp"], "skim")
+                @test !haskey(fx["dry"]["bmp"], "buttermilk")
+            end
+
         end
 
         @testset "simulate_run" begin

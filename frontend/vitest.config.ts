@@ -6,8 +6,8 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     // Watch all src files, not just those directly imported by tests.
-    // Without this, changes to e.g. muster.ts don't trigger a rerun because
-    // the test files import PlanEditor.vue, not App.vue or muster.ts.
+    // Without this, changes to e.g. http.ts don't trigger a rerun because
+    // the test files import TokenInput.vue, not App.vue or http.ts.
     forceRerunTriggers: ['**/src/**/*.ts', '**/src/**/*.vue'],
   },
 })

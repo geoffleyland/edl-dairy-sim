@@ -1,35 +1,12 @@
-import { ref } from 'vue'
+import { useApi } from './useApi'
+import { postJSON } from './http'
+import type { SimIntake, SimBlock, SimResult } from './types'
 
-export interface SimIntake {
-  silo_id:       string
-  start_hr:      number
-  end_hr:        number
-  rate_kg_per_hr: number
-}
-
-export interface SimBlock {
-  machine_id: string
-  mode:       string
-  start_hr:   number
-  end_hr:     number
-}
-
-export interface SimSnapshot {
-  time_hr: number
-  levels:  Record<string, number>
-}
-
-export interface SimResult {
-  snapshots: SimSnapshot[]
-  log:       Array<{ time_hr: number; event: string; machine_id: string; mode: string }>
-}
+export type { SimIntake, SimBlock, SimResult }
+export type { SimSnapshot } from './types'
 
 export function useSimulate() {
-  const result  = ref<SimResult | null>(null)
-  const error   = ref<string | null>(null)
-  const loading = ref(false)
-
-  let timer: ReturnType<typeof setTimeout> | null = null
+  const { result, error, loading, schedule } = useApi<SimResult>()
 
   function run(
     process:   Record<string, unknown>,
@@ -39,35 +16,10 @@ export function useSimulate() {
     rates:     Record<string, Record<string, number>> = {},
     debounceMs = 400,
   ): void {
-    if (timer !== null) clearTimeout(timer)
-    timer = setTimeout(() => _fetch(process, intakes, blocks, horizonHr, rates), debounceMs)
-  }
-
-  async function _fetch(
-    process:   Record<string, unknown>,
-    intakes:   SimIntake[],
-    blocks:    SimBlock[],
-    horizonHr: number,
-    rates:     Record<string, Record<string, number>>,
-  ): Promise<void> {
-    loading.value = true
-    error.value   = null
-    try {
-      const res = await fetch('/api/simulate', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ process, intakes, blocks, horizon_hr: horizonHr, rates }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`)
-      }
-      result.value = await res.json() as SimResult
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
-    } finally {
-      loading.value = false
-    }
+    schedule(
+      () => postJSON<SimResult>('/api/simulate', { process, intakes, blocks, horizon_hr: horizonHr, rates }),
+      debounceMs,
+    )
   }
 
   return { result, error, loading, run }
