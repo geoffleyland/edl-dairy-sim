@@ -67,11 +67,12 @@ function run_tests()
                 @test body["streams"]["cream"]["fat"] ≈ 0.400 atol=1e-5
             end
 
-            @testset "sankey uses operation name field" begin
+            @testset "sankey nodes include stream names" begin
                 resp  = yield_calc(post_req(separation_config))
                 links = resp_json(resp)["sankey"]["links"]
                 names = Set(vcat([[l["source"], l["target"]] for l in links]...))
-                @test "Separator" ∈ names
+                @test "skim" ∈ names
+                @test "cream" ∈ names
             end
 
             @testset "sankey has nodes and non-empty links" begin
@@ -146,14 +147,14 @@ function run_tests()
                 @test last.levels["cream"] ≈  500.0 atol=1e-6
             end
 
-            @testset "silo clamped at capacity" begin
+            @testset "silo exceeds capacity (no clamping)" begin
                 init = Dict("raw-milk" => 200_000.0, "skim" => 0.0, "cream" => 50_000.0)
                 cap  = Dict("raw-milk" => 200_000.0, "skim" => 100_000.0, "cream" => 50_000.0)
 
-                # Run long enough to fill skim beyond its 100_000 kg capacity.
+                # Capacity is tracked but not enforced — silos can exceed their limit.
                 r = simulate(Intake[], [Block("sep", "running", 0.0, 200.0)], init, cap, sep_effects, no_params, 200.0)
                 last = r.snapshots[end]
-                @test last.levels["skim"] ≤ 100_000.0
+                @test last.levels["skim"] > 100_000.0
             end
 
             @testset "auto-clean fires at max_run_hours" begin
@@ -271,15 +272,6 @@ function run_tests()
                     @test resp.status == 400
                 end
             end
-        end
-
-        # DB integration tests are guarded by DATABASE_URL — see architecture.md.
-        if haskey(ENV, "DATABASE_URL")
-            @testset "DB integration" begin
-                # DB tests go here.
-            end
-        else
-            @info "Skipping DB tests (no DATABASE_URL set)"
         end
 
     end

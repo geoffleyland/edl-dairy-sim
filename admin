@@ -25,10 +25,6 @@ case ${1:-help} in
         ;;
 
 
-    test)
-        julia --project=julia julia/test/runtests.jl
-        ;;
-
     watch-julia-tests)
         julia --project=julia julia/test/runtests.jl --watch
         ;;
