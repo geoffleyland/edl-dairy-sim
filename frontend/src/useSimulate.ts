@@ -1,6 +1,7 @@
 import { useApi } from './useApi'
 import { postJSON } from './http'
 import type { SimIntake, SimBlock, SimResult } from './types'
+import type { MachineRates } from './domain'
 
 export type { SimIntake, SimBlock, SimResult }
 export type { SimSnapshot } from './types'
@@ -13,7 +14,7 @@ export function useSimulate() {
     intakes:   SimIntake[],
     blocks:    SimBlock[],
     horizonHr: number,
-    rates:     Record<string, Record<string, number>> = {},
+    rates:     MachineRates = {},
     debounceMs = 400,
   ): void {
     schedule(

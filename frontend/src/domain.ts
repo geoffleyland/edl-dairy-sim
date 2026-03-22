@@ -1,13 +1,14 @@
-import type { Block, Delivery, SimBlock, SimIntake } from './types'
+import type { Machine, Block, Delivery, SimBlock, SimIntake } from './types'
 
 // ── Site constants ───────────────────────────────────────────────────────────
 
 export const TRUCK_KG = 30_000
 
-// ── Chart colours (keyed by silo id) ────────────────────────────────────────
+// ── Chart colours (keyed by stream/silo id) ─────────────────────────────────
+// Defined here so chart lines and gantt blocks share the same palette.
 
 export const SILO_COLORS: Record<string, string> = {
-  'raw-milk':             '#3b82f6',
+  'milk':                 '#3b82f6',
   'skim':                 '#0ea5e9',
   'cream':                '#f59e0b',
   'buttermilk':           '#f97316',
@@ -15,40 +16,31 @@ export const SILO_COLORS: Record<string, string> = {
   'condensed-buttermilk': '#d97706',
 }
 
-// ── Machine metadata ─────────────────────────────────────────────────────────
+// ── Machine helpers (derived from site config) ───────────────────────────────
 
-// Primary input silo for each machine type + mode — used for block colouring.
-export const INPUT_SILO: Record<string, Record<string, string>> = {
-  'separator':    { 'running':    'raw-milk'            },
-  'butter-plant': { 'running':    'cream'               },
-  'condenser':    { 'skim':       'skim',       'buttermilk': 'buttermilk'           },
-  'drier':        { 'smp':        'condensed-skim', 'bmp': 'condensed-buttermilk'  },
+// Returns the mode's primary input stream (driver), which determines block colour.
+export function modeInputSilo(machine: Machine, modeId: string): string {
+  // The actual stream graph lives in process.operations; for colouring we need
+  // to look that up. Until the diagram feature is built, we keep a compact
+  // local mapping: operation id → driver stream. This is the ONLY place the
+  // mapping is duplicated — it can be removed once the frontend reads the
+  // full process.operations alongside the site config.
+  return OPERATION_DRIVER[machine.modes.find(m => m.id === modeId)?.operation ?? ''] ?? ''
 }
 
-export const MACHINE_MODES: Record<string, string[]> = {
-  'condenser': ['skim', 'buttermilk'],
-  'drier':     ['smp',  'bmp'],
+// Operation id → driver (first input) stream. Mirrors process.operations in site.json.
+// When the diagram/editor is built this lookup will be derived from that data instead.
+const OPERATION_DRIVER: Record<string, string> = {
+  'separate-milk':  'milk',
+  'separate-cream': 'cream',
+  'condense-skim':  'skim',
+  'condense-bm':    'buttermilk',
+  'dry-skim':       'condensed-skim',
+  'dry-bm':         'condensed-buttermilk',
 }
 
-export function modesForType(type: string): string[] {
-  return MACHINE_MODES[type] ?? ['running']
-}
-
-export function blockColor(machineType: string, mode: string): string {
-  return SILO_COLORS[INPUT_SILO[machineType]?.[mode] ?? ''] ?? '#6b7280'
-}
-
-// ── Rate fields (shown in gantt label column) ────────────────────────────────
-
-export interface RateField { key: string; label: string }
-
-export const RATE_FIELDS: Record<string, RateField[]> = {
-  'separator':    [{ key: 'rate_kg_per_hour',            label: ''     }],
-  'butter-plant': [{ key: 'rate_kg_per_hour',            label: ''     }],
-  'condenser':    [{ key: 'skim_rate_kg_per_hour',       label: 'Skim' },
-                   { key: 'buttermilk_rate_kg_per_hour', label: 'BM'   }],
-  'drier':        [{ key: 'smp_rate_kg_per_hour',        label: 'SMP'  },
-                   { key: 'bmp_rate_kg_per_hour',        label: 'BMP'  }],
+export function blockColor(machine: Machine, modeId: string): string {
+  return SILO_COLORS[modeInputSilo(machine, modeId)] ?? '#6b7280'
 }
 
 // ── API conversion ───────────────────────────────────────────────────────────
@@ -66,4 +58,26 @@ export function deliveryToIntakes(deliveries: Delivery[], siloId: string): SimIn
       end_hr:         d.endHr,
       rate_kg_per_hr: (d.truckloads * TRUCK_KG) / (d.endHr - d.startHr),
     }))
+}
+
+// ── Rate override shape (sent to /simulate) ──────────────────────────────────
+// { machineId: { modeId: { rate_kg_per_hour: number } } }
+
+export type MachineRates = Record<string, Record<string, { rate_kg_per_hour: number }>>
+
+export function buildRateOverrides(
+  machines: Machine[],
+  rates: Record<string, Record<string, number>>,  // machineId → modeId → kg/hr
+): MachineRates {
+  const overrides: MachineRates = {}
+  for (const m of machines) {
+    const modeRates = rates[m.id]
+    if (!modeRates) continue
+    overrides[m.id] = {}
+    for (const mode of m.modes) {
+      const r = modeRates[mode.id]
+      if (r !== undefined) overrides[m.id][mode.id] = { rate_kg_per_hour: r }
+    }
+  }
+  return overrides
 }

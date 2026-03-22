@@ -1,90 +1,108 @@
 {
-    "_comment": "Site configuration for the dairy factory simulation. All rates in kg/hour, all volumes and levels in kg.",
+    "_comment": "Site configuration. All rates in kg/hr, volumes and levels in kg. Silo IDs match stream IDs — one silo per stream, same name.",
 
     "site_name": "Example Dairy",
 
+    "streams": [
+        { "id": "milk",                 "name": "Raw Milk",             "role": "input"        },
+        { "id": "skim",                 "name": "Skim Milk",            "role": "intermediate" },
+        { "id": "cream",                "name": "Cream",                "role": "intermediate" },
+        { "id": "buttermilk",           "name": "Buttermilk",           "role": "intermediate" },
+        { "id": "butter",               "name": "Butter",               "role": "output"       },
+        { "id": "condensed-skim",       "name": "Condensed Skim",       "role": "intermediate" },
+        { "id": "condensed-buttermilk", "name": "Condensed Buttermilk", "role": "intermediate" },
+        { "id": "smp",                  "name": "SMP",                  "role": "output"       },
+        { "id": "bmp",                  "name": "BMP",                  "role": "output"       }
+    ],
+
     "machines": [
         {
-            "id":             "separator",
-            "name":           "Separator",
-            "type":           "separator",
-            "rate_kg_per_hour": 120000,
-            "skim_fat":       0.001,
-            "cream_fat":      0.400
+            "id":        "separator",
+            "name":      "Separator",
+            "type":      "separator",
+            "resources": ["separator"],
+            "modes": [
+                {
+                    "id":               "running",
+                    "label":            "Run",
+                    "operation":        "separate-milk",
+                    "rate_kg_per_hour": 120000
+                }
+            ]
         },
         {
-            "id":             "butter-plant",
-            "name":           "Butter Plant",
-            "type":           "butter-plant",
-            "rate_kg_per_hour": 15000,
-            "butter_fat":     0.820,
-            "buttermilk_fat": 0.005
+            "id":        "butter-plant",
+            "name":      "Butter Plant",
+            "type":      "butter-plant",
+            "resources": ["butter-plant"],
+            "modes": [
+                {
+                    "id":               "running",
+                    "label":            "Run",
+                    "operation":        "separate-cream",
+                    "rate_kg_per_hour": 15000
+                }
+            ]
         },
         {
-            "id":                  "condenser",
-            "name":                "Condenser",
-            "type":                "condenser",
-            "skim_rate_kg_per_hour":       150000,
-            "buttermilk_rate_kg_per_hour": 150000,
-            "changeover_hours":    1.0,
-            "max_run_hours":       20.0,
-            "clean_hours":         4.0
+            "id":               "condenser",
+            "name":             "Condenser",
+            "type":             "condenser",
+            "resources":        ["condenser"],
+            "changeover_hours": 1.0,
+            "max_run_hours":    20.0,
+            "clean_hours":      4.0,
+            "modes": [
+                {
+                    "id":               "skim",
+                    "label":            "Skim",
+                    "operation":        "condense-skim",
+                    "rate_kg_per_hour": 150000
+                },
+                {
+                    "id":               "buttermilk",
+                    "label":            "BM",
+                    "operation":        "condense-bm",
+                    "rate_kg_per_hour": 150000
+                }
+            ]
         },
         {
-            "id":                  "drier",
-            "name":                "Drier",
-            "type":                "drier",
-            "smp_rate_kg_per_hour": 35000,
-            "bmp_rate_kg_per_hour": 30000,
-            "changeover_hours":    1.0,
-            "max_run_hours":       16.0,
-            "clean_hours":         6.0
+            "id":               "drier",
+            "name":             "Drier",
+            "type":             "drier",
+            "resources":        ["drier"],
+            "changeover_hours": 1.0,
+            "max_run_hours":    16.0,
+            "clean_hours":      6.0,
+            "modes": [
+                {
+                    "id":               "smp",
+                    "label":            "SMP",
+                    "operation":        "dry-skim",
+                    "rate_kg_per_hour": 35000
+                },
+                {
+                    "id":               "bmp",
+                    "label":            "BMP",
+                    "operation":        "dry-bm",
+                    "rate_kg_per_hour": 30000
+                }
+            ]
         }
     ],
 
     "silos": [
-        {
-            "id":          "raw-milk",
-            "name":        "Raw Milk",
-            "volume_kg":   200000,
-            "initial_kg":  80000
-        },
-        {
-            "id":          "skim",
-            "name":        "Skim",
-            "volume_kg":   100000,
-            "initial_kg":  0
-        },
-        {
-            "id":          "cream",
-            "name":        "Cream",
-            "volume_kg":   50000,
-            "initial_kg":  0
-        },
-        {
-            "id":          "buttermilk",
-            "name":        "Buttermilk",
-            "volume_kg":   50000,
-            "initial_kg":  0
-        },
-        {
-            "id":          "condensed-skim",
-            "name":        "Condensed Skim",
-            "volume_kg":   30000,
-            "initial_kg":  0
-        },
-        {
-            "id":          "condensed-buttermilk",
-            "name":        "Condensed Buttermilk",
-            "volume_kg":   20000,
-            "initial_kg":  0
-        }
+        { "id": "milk",                 "name": "Raw Milk",             "volume_kg": 200000, "initial_kg": 80000 },
+        { "id": "skim",                 "name": "Skim",                 "volume_kg": 100000, "initial_kg": 0     },
+        { "id": "cream",                "name": "Cream",                "volume_kg":  50000, "initial_kg": 0     },
+        { "id": "buttermilk",           "name": "Buttermilk",           "volume_kg":  50000, "initial_kg": 0     },
+        { "id": "condensed-skim",       "name": "Condensed Skim",       "volume_kg":  30000, "initial_kg": 0     },
+        { "id": "condensed-buttermilk", "name": "Condensed Buttermilk", "volume_kg":  20000, "initial_kg": 0     }
     ],
 
-    "exportable": ["cream", "condensed-skim", "condensed-buttermilk"],
-
     "process": {
-        "_comment": "Yield.jl config for the mass-balance calculation. milk composition is the default; the yield page overrides it at runtime. Compositions for intermediate streams are targets set by machine parameters.",
+        "_comment": "Yield.jl mass-balance config. Yield.jl reads components/compositions/quantities/operations and ignores the rest. Operation IDs are used by the simulation to look up stream graphs; Yield.jl ignores them. inputs/outputs are arrays throughout.",
 
         "components": ["fat", "protein", "lactose"],
 
@@ -106,42 +124,48 @@
 
         "operations": [
             {
+                "id":                   "separate-milk",
+                "name":                 "Separator",
                 "operation":            "separation",
-                "input":                "milk",
+                "inputs":               ["milk"],
                 "outputs":              ["skim", "cream"],
-                "separation-component": "fat",
-                "name":                 "Separator"
+                "separation-component": "fat"
             },
             {
+                "id":                   "separate-cream",
+                "name":                 "Butter Plant",
                 "operation":            "separation",
-                "input":                "cream",
-                "outputs":              ["buttermilk", "butter"],
-                "separation-component": "fat",
-                "name":                 "Butter Plant"
+                "inputs":               ["cream"],
+                "outputs":              ["butter", "buttermilk"],
+                "separation-component": "fat"
             },
             {
+                "id":        "condense-skim",
+                "name":      "Condenser",
                 "operation": "dry",
-                "input":     "skim",
-                "output":    "condensed-skim",
-                "name":      "Condenser"
+                "inputs":    ["skim"],
+                "outputs":   ["condensed-skim"]
             },
             {
+                "id":        "condense-bm",
+                "name":      "Condenser (BM)",
                 "operation": "dry",
-                "input":     "buttermilk",
-                "output":    "condensed-buttermilk",
-                "name":      "Condenser (BM)"
+                "inputs":    ["buttermilk"],
+                "outputs":   ["condensed-buttermilk"]
             },
             {
+                "id":        "dry-skim",
+                "name":      "Drier",
                 "operation": "dry",
-                "input":     "condensed-skim",
-                "output":    "smp",
-                "name":      "Drier"
+                "inputs":    ["condensed-skim"],
+                "outputs":   ["smp"]
             },
             {
+                "id":        "dry-bm",
+                "name":      "Drier (BM)",
                 "operation": "dry",
-                "input":     "condensed-buttermilk",
-                "output":    "bmp",
-                "name":      "Drier (BM)"
+                "inputs":    ["condensed-buttermilk"],
+                "outputs":   ["bmp"]
             }
         ]
     }

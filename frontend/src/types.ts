@@ -1,10 +1,24 @@
 // ── Site config ──────────────────────────────────────────────────────────────
 
+export interface MachineMode {
+  id:               string
+  label:            string
+  operation:        string
+  rate_kg_per_hour: number
+}
+
 export interface Machine {
+  id:        string
+  name:      string
+  type:      string
+  resources: string[]
+  modes:     MachineMode[]
+}
+
+export interface Stream {
   id:   string
   name: string
-  type: string
-  [key: string]: unknown   // rate fields vary by machine type
+  role: 'input' | 'intermediate' | 'output'
 }
 
 export interface Silo {
@@ -70,11 +84,13 @@ export interface SimBlock {
 }
 
 export interface SimSnapshot {
-  time_hr: number
-  levels:  Record<string, number>
+  time_hr:      number
+  levels:       Record<string, number>
+  label:        string
+  equipment_id: string
+  mode:         string
 }
 
 export interface SimResult {
   snapshots: SimSnapshot[]
-  log:       Array<{ time_hr: number; event: string; machine_id: string; mode: string }>
 }

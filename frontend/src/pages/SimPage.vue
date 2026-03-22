@@ -2,8 +2,8 @@
 import * as echarts from 'echarts'
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useSimulate } from '../useSimulate'
-import type { SiteConfig, Block, Delivery } from '../types'
-import { SILO_COLORS, RATE_FIELDS, blockColor, modesForType, blockToApi, deliveryToIntakes } from '../domain'
+import type { SiteConfig, Machine, Block, Delivery } from '../types'
+import { SILO_COLORS, blockColor, blockToApi, deliveryToIntakes, buildRateOverrides } from '../domain'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -15,15 +15,8 @@ const AXIS_TICKS = [0, 4, 8, 12, 16, 20, 24]
 const siteConfig  = ref<SiteConfig | null>(null)
 const configError = ref<string | null>(null)
 
-interface MachineDef { id: string; name: string; type: string; modes: string[] }
-
-const machineDefs = computed<MachineDef[]>(() =>
-  (siteConfig.value?.machines ?? []).map(m => ({
-    id: m.id, name: m.name, type: m.type, modes: modesForType(m.type),
-  }))
-)
-
-const siloDefs = computed(() => siteConfig.value?.silos ?? [])
+const machineDefs = computed<Machine[]>(() => siteConfig.value?.machines ?? [])
+const siloDefs    = computed(()         => siteConfig.value?.silos     ?? [])
 
 onMounted(async () => {
   try {
@@ -34,16 +27,11 @@ onMounted(async () => {
     configError.value = e instanceof Error ? e.message : String(e)
     return
   }
-  for (const m of machineDefs.value) activeMode[m.id] = m.modes[0]
-  for (const s of siloDefs.value)    capacities[s.id] = s.volume_kg
-  // Init machine rates from site.json
-  const machines = (siteConfig.value?.machines ?? []) as Array<Record<string, unknown>>
-  for (const m of machines) {
-    const id     = String(m.id)
-    const fields = RATE_FIELDS[String(m.type)] ?? []
-    if (fields.length > 0)
-      machineRates[id] = Object.fromEntries(fields.map(f => [f.key, Number(m[f.key] ?? 0)]))
+  for (const m of machineDefs.value) {
+    activeMode[m.id]   = m.modes[0].id
+    machineRates[m.id] = Object.fromEntries(m.modes.map(mo => [mo.id, mo.rate_kg_per_hour]))
   }
+  for (const s of siloDefs.value) capacities[s.id] = s.volume_kg
   triggerSim()
 })
 
@@ -51,13 +39,13 @@ onMounted(async () => {
 
 const activeMode = reactive<Record<string, string>>({})
 
-// ── Machine rates (editable, from site.json) ─────────────────────────────────
+// ── Machine rates (machineId → modeId → kg/hr) ───────────────────────────────
 
 const machineRates = reactive<Record<string, Record<string, number>>>({})
 
-function setMachineRate(machineId: string, key: string, kg: number) {
+function setModeRate(machineId: string, modeId: string, kg: number) {
   if (!machineRates[machineId]) machineRates[machineId] = {}
-  machineRates[machineId][key] = Math.max(0, kg)
+  machineRates[machineId][modeId] = Math.max(0, kg)
 }
 
 // ── Schedule blocks ──────────────────────────────────────────────────────────
@@ -79,12 +67,12 @@ const rawMilkDeliveries = ref<Delivery[]>([
 const creamDeliveries = ref<Delivery[]>([])
 
 function removeDelivery(id: string, siloId: string) {
-  if (siloId === 'raw-milk') rawMilkDeliveries.value = rawMilkDeliveries.value.filter(d => d.id !== id)
+  if (siloId === 'milk') rawMilkDeliveries.value = rawMilkDeliveries.value.filter(d => d.id !== id)
   else                       creamDeliveries.value   = creamDeliveries.value.filter(d => d.id !== id)
 }
 
 function deliveryArr(siloId: string) {
-  return siloId === 'raw-milk' ? rawMilkDeliveries : creamDeliveries
+  return siloId === 'milk' ? rawMilkDeliveries : creamDeliveries
 }
 
 // ── Track DOM refs ───────────────────────────────────────────────────────────
@@ -99,7 +87,7 @@ const rawMilkTrackEl = ref<HTMLElement | null>(null)
 const creamTrackEl   = ref<HTMLElement | null>(null)
 
 function deliveryTrackEl(siloId: string): HTMLElement | null {
-  return siloId === 'raw-milk' ? rawMilkTrackEl.value : creamTrackEl.value
+  return siloId === 'milk' ? rawMilkTrackEl.value : creamTrackEl.value
 }
 
 // ── Drag state ───────────────────────────────────────────────────────────────
@@ -256,8 +244,8 @@ const ghostStyle = computed(() => {
   if (!d || d.kind !== 'create') return {}
   const a = Math.min(d.startHr, d.currentHr)
   const b = Math.max(d.startHr, d.currentHr)
-  const type = machineDefs.value.find(m => m.id === d.machineId)?.type ?? ''
-  return barStyle(a, Math.max(b, a + 0.25), blockColor(type, d.mode))
+  const machine = machineDefs.value.find(m => m.id === d.machineId)
+  return barStyle(a, Math.max(b, a + 0.25), machine ? blockColor(machine, d.mode) : '#6b7280')
 })
 
 const deliveryGhostStyle = computed(() => {
@@ -265,7 +253,7 @@ const deliveryGhostStyle = computed(() => {
   if (!d || d.kind !== 'delivery') return {}
   const a = Math.min(d.startHr, d.currentHr)
   const b = Math.max(d.startHr, d.currentHr)
-  return barStyle(a, Math.max(b, a + 0.25), SILO_COLORS[d.siloId] ?? SILO_COLORS['raw-milk'])
+  return barStyle(a, Math.max(b, a + 0.25), SILO_COLORS[d.siloId] ?? SILO_COLORS['milk'])
 })
 
 // ── Simulation ───────────────────────────────────────────────────────────────
@@ -279,12 +267,12 @@ function triggerSim() {
   run(
     cfg.process as Record<string, unknown>,
     [
-      ...deliveryToIntakes(rawMilkDeliveries.value, 'raw-milk'),
+      ...deliveryToIntakes(rawMilkDeliveries.value, 'milk'),
       ...deliveryToIntakes(creamDeliveries.value,   'cream'),
     ],
     blocks.value.map(blockToApi),
     HORIZON,
-    { ...machineRates },
+    buildRateOverrides(machineDefs.value, machineRates),
   )
 }
 
@@ -416,21 +404,21 @@ watch(capacities, async () => {
           <div class="row-label">
             <span class="machine-name">Raw Milk</span>
           </div>
-          <div class="row-track" ref="rawMilkTrackEl" @mousedown="onDeliveryTrackDown($event, 'raw-milk')">
+          <div class="row-track" ref="rawMilkTrackEl" @mousedown="onDeliveryTrackDown($event, 'milk')">
             <div
               v-for="d in rawMilkDeliveries" :key="d.id"
               class="block"
-              :style="barStyle(d.startHr, d.endHr, SILO_COLORS['raw-milk'])"
-              @mousedown.stop="onDeliveryBarDown($event, d.id, 'raw-milk')"
+              :style="barStyle(d.startHr, d.endHr, SILO_COLORS['milk'])"
+              @mousedown.stop="onDeliveryBarDown($event, d.id, 'milk')"
             >
-              <div class="rh rh-l" @mousedown.stop="onResizeDelivery($event, d.id, 'raw-milk', 'start')" />
+              <div class="rh rh-l" @mousedown.stop="onResizeDelivery($event, d.id, 'milk', 'start')" />
               <input type="number" v-model.number="d.truckloads" min="1" max="99" step="1"
                 class="truck-input" @mousedown.stop @click.stop />
               <span class="truck-unit" @mousedown.stop @click.stop>loads at 30,000 kg each</span>
-              <button class="block-del" @mousedown.stop @click.stop="removeDelivery(d.id, 'raw-milk')">×</button>
-              <div class="rh rh-r" @mousedown.stop="onResizeDelivery($event, d.id, 'raw-milk', 'end')" />
+              <button class="block-del" @mousedown.stop @click.stop="removeDelivery(d.id, 'milk')">×</button>
+              <div class="rh rh-r" @mousedown.stop="onResizeDelivery($event, d.id, 'milk', 'end')" />
             </div>
-            <div v-if="isDeliveryGhostFor('raw-milk')" class="block ghost" :style="deliveryGhostStyle" />
+            <div v-if="isDeliveryGhostFor('milk')" class="block ghost" :style="deliveryGhostStyle" />
           </div>
         </div>
 
@@ -464,23 +452,23 @@ watch(capacities, async () => {
               <span class="machine-name">{{ m.name }}</span>
               <div v-if="m.modes.length > 1" class="mode-btns">
                 <button
-                  v-for="mode in m.modes" :key="mode"
-                  :class="['mode-btn', { active: activeMode[m.id] === mode }]"
-                  :style="activeMode[m.id] === mode
-                    ? { background: blockColor(m.type, mode), color: 'white', borderColor: 'transparent' }
-                    : { borderColor: blockColor(m.type, mode), color: blockColor(m.type, mode) }"
-                  @click="activeMode[m.id] = mode"
-                >{{ mode }}</button>
+                  v-for="mo in m.modes" :key="mo.id"
+                  :class="['mode-btn', { active: activeMode[m.id] === mo.id }]"
+                  :style="activeMode[m.id] === mo.id
+                    ? { background: blockColor(m, mo.id), color: 'white', borderColor: 'transparent' }
+                    : { borderColor: blockColor(m, mo.id), color: blockColor(m, mo.id) }"
+                  @click="activeMode[m.id] = mo.id"
+                >{{ mo.label }}</button>
               </div>
             </div>
-            <div v-if="RATE_FIELDS[m.type]?.length" class="label-rates">
-              <template v-for="f in (RATE_FIELDS[m.type] ?? [])" :key="f.key">
-                <span v-if="f.label" class="rate-label">{{ f.label }}</span>
+            <div class="label-rates">
+              <template v-for="mo in m.modes" :key="mo.id">
+                <span v-if="m.modes.length > 1" class="rate-label">{{ mo.label }}</span>
                 <input
                   type="number" step="0.5" min="0.5"
                   class="rate-input"
-                  :value="((machineRates[m.id]?.[f.key] ?? 0) / 1000).toFixed(1)"
-                  @change="(e) => setMachineRate(m.id, f.key, +(e.target as HTMLInputElement).value * 1000)"
+                  :value="((machineRates[m.id]?.[mo.id] ?? mo.rate_kg_per_hour) / 1000).toFixed(1)"
+                  @change="(e) => setModeRate(m.id, mo.id, +(e.target as HTMLInputElement).value * 1000)"
                   @click.stop @mousedown.stop
                 />
               </template>
@@ -496,7 +484,7 @@ watch(capacities, async () => {
             <div
               v-for="b in blocksFor(m.id)" :key="b.id"
               class="block"
-              :style="barStyle(b.startHr, b.endHr, blockColor(m.type, b.mode))"
+              :style="barStyle(b.startHr, b.endHr, blockColor(m, b.mode))"
               :title="`${b.mode}  ${b.startHr}h – ${b.endHr}h`"
               @mousedown.stop="onBlockDown($event, b.id, m.id)"
             >

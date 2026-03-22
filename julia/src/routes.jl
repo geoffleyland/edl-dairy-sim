@@ -79,7 +79,7 @@ function simulate_run(req::HTTP.Request, data_dir::String)
     machines = norm_vec(get(site_raw, "machines", []))
     silos    = norm_vec(get(site_raw, "silos",    []))
 
-    # Run Yield to get per-stream mass ratios (kg per kg of milk).
+    # Run Yield to get per-stream mass ratios (kg per kg of driver stream).
     process_config = norm(body["process"])
     quantities, _ = try
         Yield.compute(process_config)
@@ -88,19 +88,42 @@ function simulate_run(req::HTTP.Request, data_dir::String)
         return json(Dict("error" => "yield failed: $(sprint(showerror, e))"), status = 422)
     end
 
-    # Apply rate overrides sent from the frontend ({ machine_id => { rate_field => value } }).
-    rates_raw = get(body, "rates", nothing)
-    if rates_raw !== nothing
-        rates_body = norm(rates_raw)
-        machines = [
-            let id = string(m["id"])
-                haskey(rates_body, id) ? merge(m, norm(rates_body[id])) : m
-            end
-            for m in machines
-        ]
+    # Build operation lookup: id → operation (for pre-joining inputs/outputs onto modes).
+    ops_by_id = Dict{String, Dict{String, Any}}(
+        string(op["id"]) => norm(op)
+        for op in get(process_config, "operations", [])
+        if haskey(op, "id")
+    )
+
+    # Pre-join each mode with its operation's inputs/outputs so compute_effects
+    # is fully data-driven with no machine-type branching.
+    enrich_mode(mode) = let op = get(ops_by_id, string(mode["operation"]), Dict{String,Any}())
+        merge(mode, Dict{String,Any}(
+            "inputs"  => [string(s) for s in get(op, "inputs",  get(op, "input",  []))],
+            "outputs" => [string(s) for s in get(op, "outputs", get(op, "output", []))],
+        ))
     end
 
-    effects        = compute_effects(machines, quantities)
+    # Apply rate overrides from the frontend: { machine_id => { mode_id => { rate_kg_per_hour => value } } }.
+    rates_raw = get(body, "rates", nothing)
+    mode_overrides = rates_raw !== nothing ? norm(rates_raw) : Dict{String,Any}()
+
+    machines = [
+        let id            = string(m["id"])
+            mach_overrides = get(mode_overrides, id, Dict{String,Any}())
+            enriched_modes = [
+                let mid = string(mode["id"])
+                    enriched = enrich_mode(norm(mode))
+                    haskey(mach_overrides, mid) ? merge(enriched, norm(mach_overrides[mid])) : enriched
+                end
+                for mode in m["modes"]
+            ]
+            merge(m, Dict{String,Any}("modes" => enriched_modes))
+        end
+        for m in machines
+    ]
+
+    effects = compute_effects(machines, quantities)
 
     # Pull max_run_hours / clean_hours out of machines that have them.
     machine_params = Dict{String, Dict{String, Any}}()
@@ -110,10 +133,7 @@ function simulate_run(req::HTTP.Request, data_dir::String)
     end
 
     initial_levels = Dict{String, Float64}(string(s["id"]) => Float64(get(s, "initial_kg", 0.0)) for s in silos)
-    # Capacity is shown as a visual reference line on the frontend; not enforced in the sim.
-    capacity       = Dict{String, Float64}(string(s["id"]) => Inf for s in silos)
-
-    horizon_hr = Float64(get(body, "horizon_hr", 24.0))
+    horizon_hr     = Float64(get(body, "horizon_hr", 24.0))
 
     intakes = Intake[]
     for i in norm_vec(get(body, "intakes", []))
@@ -125,12 +145,17 @@ function simulate_run(req::HTTP.Request, data_dir::String)
         push!(blocks, Block(string(b["machine_id"]), string(b["mode"]), Float64(b["start_hr"]), Float64(b["end_hr"])))
     end
 
-    result = simulate(intakes, blocks, initial_levels, capacity, effects, machine_params, horizon_hr)
+    result = simulate(intakes, blocks, initial_levels, effects, machine_params, horizon_hr)
 
     json(Dict{String, Any}(
-        "snapshots" => [Dict{String, Any}("time_hr" => s.time_hr, "levels" => s.levels) for s in result.snapshots],
-        "log"       => [Dict{String, Any}("time_hr" => e.time_hr, "event" => e.event, "machine_id" => e.machine_id, "mode" => e.mode) for e in result.log],
-        "effects"   => effects,
+        "snapshots" => [Dict{String, Any}(
+            "time_hr"      => s.time_hr,
+            "levels"       => s.levels,
+            "label"        => s.label,
+            "equipment_id" => s.equipment_id,
+            "mode"         => s.mode,
+        ) for s in result.snapshots],
+        "effects" => effects,
     ))
 end
 
