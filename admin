@@ -13,8 +13,10 @@ case ${1:-help} in
         # Hot-reload dev server. Changes to julia/src/ hot-reload routes.
         # Changes to examples/Yield.jl/src/ trigger a full process restart
         # (compiled packages can't be hot-reloaded).
+        # Exit codes: 1 = restart requested (Yield.jl change), anything else = stop.
         while true; do
             julia --project=julia -i julia/src/dev.jl
+            [ $? -eq 1 ] || break
             echo "==> Restarting Julia server..."
         done
         ;;

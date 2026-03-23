@@ -21,9 +21,14 @@ port, data_dir = parse_cli_and_init_logging()
 
 function restart!()
     try Oxygen.terminate() catch end
+    sleep(0.3)   # let the old server release the port before rebinding
     include(joinpath(SRC_DIR, "middleware.jl"))
     include(joinpath(SRC_DIR, "routes.jl"))
-    Base.invokelatest(start_server, port, data_dir, async=true)
+    try
+        Base.invokelatest(start_server, port, data_dir, async=true)
+    catch e
+        @error "Failed to restart server" exception=(e, catch_backtrace())
+    end
 end
 
 # Hot-reload watcher: re-include routes/middleware on changes to julia/src/.
@@ -40,7 +45,7 @@ end
     changed, _ = watch_folder(YIELD_SRC)
     endswith(changed, ".jl") || continue
     @info "$(changed) changed in Yield.jl — exiting for full process restart"
-    exit(0)
+    exit(1)
 end
 
 restart!()

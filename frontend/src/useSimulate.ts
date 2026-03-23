@@ -10,15 +10,16 @@ export function useSimulate() {
   const { result, error, loading, schedule } = useApi<SimResult>()
 
   function run(
-    process:   Record<string, unknown>,
-    intakes:   SimIntake[],
-    blocks:    SimBlock[],
-    horizonHr: number,
-    rates:     MachineRates = {},
-    debounceMs = 400,
+    process:    Record<string, unknown>,
+    intakes:    SimIntake[],
+    blocks:     SimBlock[],
+    horizonHr:  number,
+    rates:      MachineRates = {},
+    capacities: Record<string, number> = {},
+    debounceMs  = 400,
   ): void {
     schedule(
-      () => postJSON<SimResult>('/api/simulate', { process, intakes, blocks, horizon_hr: horizonHr, rates }),
+      () => postJSON<SimResult>('/api/simulate', { process, intakes, blocks, horizon_hr: horizonHr, rates, capacities }),
       debounceMs,
     )
   }

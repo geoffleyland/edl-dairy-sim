@@ -46,5 +46,13 @@ end
 function start_server(port::Int, data_dir::String; async::Bool = false)
     register_routes(data_dir)
     @info "Dairy demo starting on port $port (data: $data_dir)"
-    serve(host="0.0.0.0", port=port, async=async, middleware=[request_logging_middleware])
+    # Let Ctrl+C throw InterruptException rather than abruptly killing the process.
+    ccall(:jl_exit_on_sigint, Cvoid, (Cint,), 0)
+    try
+        serve(host="0.0.0.0", port=port, async=async, middleware=[request_logging_middleware])
+    catch e
+        e isa InterruptException || rethrow()
+        @info "Server stopped."
+        exit(0)
+    end
 end

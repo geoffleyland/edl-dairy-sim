@@ -91,6 +91,15 @@ export interface SimSnapshot {
   mode:         string
 }
 
+export interface MachineInterval {
+  machine_id:  string
+  mode:        string
+  start_hr:    number
+  end_hr:      number
+  stop_reason: string   // "block-end" | "clean-start" | "clean-end" | "silo-empty" | "silo-full" | "horizon"
+}
+
 export interface SimResult {
   snapshots: SimSnapshot[]
+  intervals: MachineInterval[]
 }

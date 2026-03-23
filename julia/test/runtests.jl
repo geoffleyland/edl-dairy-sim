@@ -118,13 +118,14 @@ function run_tests()
                 )),
             )
             no_params = Dict{String, Dict{String, Any}}()
+            no_cap    = Dict{String, Float64}()
 
             @testset "silo levels change correctly" begin
                 intakes = [Intake("milk", 0.0, 10.0, 1000.0)]
                 blocks  = [Block("sep", "running", 0.0, 10.0)]
                 init    = Dict("milk" => 0.0, "skim" => 0.0, "cream" => 0.0)
 
-                r = simulate(intakes, blocks, init, sep_effects, no_params, 10.0)
+                r = simulate(intakes, blocks, init, no_cap, sep_effects, no_params, 10.0)
                 last = r.snapshots[end]
 
                 # Intake exactly matches outflow — milk stays near 0.
@@ -137,7 +138,7 @@ function run_tests()
                 blocks = [Block("sep", "running", 0.0, 5.0)]
                 init   = Dict("milk" => 50_000.0, "skim" => 0.0, "cream" => 0.0)
 
-                r = simulate(Intake[], blocks, init, sep_effects, no_params, 10.0)
+                r = simulate(Intake[], blocks, init, no_cap, sep_effects, no_params, 10.0)
                 last = r.snapshots[end]
 
                 # Separator ran for 5 hr only: skim = 900*5 = 4500
@@ -145,13 +146,82 @@ function run_tests()
                 @test last.levels["cream"] ≈  500.0 atol=1e-6
             end
 
-            @testset "silo exceeds capacity (no clamping)" begin
-                init = Dict("milk" => 200_000.0, "skim" => 0.0, "cream" => 50_000.0)
+            @testset "silo-empty stops machine" begin
+                # Milk starts at 5000, separator drains at 1000 kg/hr → empties at t=5
+                blocks = [Block("sep", "running", 0.0, 10.0)]
+                init   = Dict("milk" => 5_000.0, "skim" => 0.0, "cream" => 0.0)
+                cap    = Dict("milk" => 200_000.0, "skim" => 100_000.0, "cream" => 50_000.0)
 
-                # Capacity is not enforced — silos can exceed their limit.
-                r = simulate(Intake[], [Block("sep", "running", 0.0, 200.0)], init, sep_effects, no_params, 200.0)
+                r = simulate(Intake[], blocks, init, cap, sep_effects, no_params, 10.0)
+
+                empty_snaps = filter(s -> s.label == "silo-empty", r.snapshots)
+                @test length(empty_snaps) >= 1
+                @test empty_snaps[1].time_hr ≈ 5.0 atol=1e-6
+                @test empty_snaps[1].equipment_id == "milk"
+
+                # Separator stopped: skim only accumulated for 5 hr
                 last = r.snapshots[end]
-                @test last.levels["skim"] > 100_000.0
+                @test last.levels["skim"]  ≈ 4500.0 atol=1e-6
+
+                # Interval recorded with correct stop_reason
+                iv = filter(i -> i.machine_id == "sep", r.intervals)
+                @test length(iv) == 1
+                @test iv[1].stop_reason == "silo-empty"
+                @test iv[1].end_hr ≈ 5.0 atol=1e-6
+            end
+
+            @testset "silo-full stops machine" begin
+                # Skim silo capacity 4500; separator fills at 900 kg/hr → full at t=5
+                blocks = [Block("sep", "running", 0.0, 10.0)]
+                init   = Dict("milk" => 200_000.0, "skim" => 0.0, "cream" => 0.0)
+                cap    = Dict("milk" => 200_000.0, "skim" => 4_500.0, "cream" => 50_000.0)
+
+                r = simulate(Intake[], blocks, init, cap, sep_effects, no_params, 10.0)
+
+                full_snaps = filter(s -> s.label == "silo-full", r.snapshots)
+                @test length(full_snaps) >= 1
+                @test full_snaps[1].time_hr ≈ 5.0 atol=1e-6
+                @test full_snaps[1].equipment_id == "skim"
+
+                iv = filter(i -> i.machine_id == "sep", r.intervals)
+                @test length(iv) == 1
+                @test iv[1].stop_reason == "silo-full"
+                @test iv[1].end_hr ≈ 5.0 atol=1e-6
+            end
+
+            @testset "silo-full stops intake" begin
+                # Milk silo capacity 5000; intake at 1000 kg/hr → full at t=5, stops before t=10
+                intakes = [Intake("milk", 0.0, 10.0, 1000.0)]
+                init    = Dict("milk" => 0.0)
+                cap     = Dict("milk" => 5_000.0)
+
+                r = simulate(intakes, Block[], init, cap, Dict{String,Dict{String,Dict{String,Float64}}}(), no_params, 10.0)
+
+                full_snaps = filter(s -> s.label == "silo-full", r.snapshots)
+                @test length(full_snaps) >= 1
+                @test full_snaps[1].time_hr ≈ 5.0 atol=1e-6
+
+                # Silo must not exceed capacity
+                last = r.snapshots[end]
+                @test last.levels["milk"] ≈ 5_000.0 atol=1e-3
+            end
+
+            @testset "intervals record block-end and clean correctly" begin
+                cond_effects = Dict{String, Dict{String, Dict{String, Float64}}}(
+                    "cond" => Dict("skim" => Dict("skim" => -100.0, "condensed-skim" => +50.0)),
+                )
+                params = Dict{String, Dict{String, Any}}(
+                    "cond" => Dict{String, Any}("max_run_hours" => 20.0, "clean_hours" => 4.0),
+                )
+                blocks = [Block("cond", "skim", 0.0, 25.0)]
+                init   = Dict("skim" => 200_000.0, "condensed-skim" => 0.0)
+
+                r = simulate(Intake[], blocks, init, no_cap, cond_effects, params, 25.0)
+
+                ivs = r.intervals
+                @test any(i -> i.mode == "skim"     && i.stop_reason == "clean-start", ivs)
+                @test any(i -> i.mode == "cleaning" && i.stop_reason == "clean-end",   ivs)
+                @test any(i -> i.mode == "skim"     && i.stop_reason == "block-end",   ivs)
             end
 
             @testset "auto-clean fires at max_run_hours" begin
@@ -164,7 +234,7 @@ function run_tests()
                 blocks = [Block("cond", "skim", 0.0, 25.0)]
                 init   = Dict("skim" => 200_000.0, "condensed-skim" => 0.0)
 
-                r = simulate(Intake[], blocks, init, cond_effects, params, 25.0)
+                r = simulate(Intake[], blocks, init, no_cap, cond_effects, params, 25.0)
 
                 cleans = filter(s -> s.label == "clean-start", r.snapshots)
                 ends   = filter(s -> s.label == "clean-end",   r.snapshots)

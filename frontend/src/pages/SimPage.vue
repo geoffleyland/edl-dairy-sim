@@ -2,7 +2,7 @@
 import * as echarts from 'echarts'
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useSimulate } from '../useSimulate'
-import type { SiteConfig, Machine, Block, Delivery } from '../types'
+import type { SiteConfig, Machine, Block, Delivery, MachineInterval } from '../types'
 import { SILO_COLORS, blockColor, blockToApi, deliveryToIntakes, buildRateOverrides } from '../domain'
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -273,7 +273,54 @@ function triggerSim() {
     blocks.value.map(blockToApi),
     HORIZON,
     buildRateOverrides(machineDefs.value, machineRates),
+    { ...capacities },
   )
+}
+
+// ── Actual run intervals from simulation ─────────────────────────────────────
+
+const intervalsByMachine = computed<Record<string, MachineInterval[]>>(() => {
+  const result: Record<string, MachineInterval[]> = {}
+  for (const iv of simResult.value?.intervals ?? []) {
+    ;(result[iv.machine_id] ??= []).push(iv)
+  }
+  return result
+})
+
+const CLEAN_COLOR = '#9ca3af'
+
+function actualIntervalStyle(iv: MachineInterval, machine: Machine) {
+  const color = iv.mode === 'cleaning' ? CLEAN_COLOR : (blockColor(machine, iv.mode) ?? '#6b7280')
+  return { ...barStyle(iv.start_hr, iv.end_hr, color), top: '3px', height: 'calc(100% - 6px)', opacity: '1' }
+}
+
+function limitMarkerStyle(iv: MachineInterval) {
+  return {
+    position:   'absolute' as const,
+    left:       `${(iv.end_hr / HORIZON) * 100}%`,
+    top:        '0',
+    bottom:     '0',
+    width:      '4px',
+    transform:  'translateX(-2px)',
+    background: '#ef4444',
+    cursor:     'pointer',
+    zIndex:     '20',
+    borderRadius: '1px',
+  }
+}
+
+function limitMarkerTitle(iv: MachineInterval): string {
+  const reason = iv.stop_reason === 'silo-empty' ? 'Silo empty' : 'Silo full'
+  return `${reason} at ${iv.end_hr.toFixed(2)}h — click to trim block`
+}
+
+function trimBlockToInterval(iv: MachineInterval) {
+  const block = blocks.value.find(b =>
+    b.machineId === iv.machine_id &&
+    b.startHr   <= iv.start_hr + 0.01 &&
+    b.endHr     >  iv.end_hr   - 0.01
+  )
+  if (block) block.endHr = iv.end_hr
 }
 
 watch([blocks, rawMilkDeliveries, creamDeliveries], triggerSim, { deep: true })
@@ -372,11 +419,8 @@ watch(simResult, async (r) => {
   await nextTick()
   for (const silo of siloDefs.value) updateSiloChart(silo.id, r.snapshots)
 })
-watch(capacities, async () => {
-  const r = simResult.value
-  if (!r) return
-  await nextTick()
-  for (const silo of siloDefs.value) updateSiloChart(silo.id, r.snapshots)
+watch(capacities, () => {
+  triggerSim()
 }, { deep: true })
 </script>
 
@@ -481,6 +525,15 @@ watch(capacities, async () => {
             :ref="(el) => setTrackEl(m.id, el)"
             @mousedown="onTrackDown($event, m.id)"
           >
+            <!-- Actual run intervals (behind planned blocks) -->
+            <div
+              v-for="iv in intervalsByMachine[m.id] ?? []"
+              :key="`iv-${iv.machine_id}-${iv.start_hr}`"
+              class="actual-interval"
+              :class="{ 'actual-interval--clean': iv.mode === 'cleaning' }"
+              :style="actualIntervalStyle(iv, m)"
+            />
+            <!-- Planned blocks -->
             <div
               v-for="b in blocksFor(m.id)" :key="b.id"
               class="block"
@@ -493,6 +546,15 @@ watch(capacities, async () => {
               <button class="block-del" @mousedown.stop @click.stop="removeBlock(b.id)">×</button>
               <div class="rh rh-r" @mousedown.stop="onResizeBlock($event, b.id, 'end')" />
             </div>
+            <!-- Limit-stop markers (above everything, clickable) -->
+            <div
+              v-for="iv in (intervalsByMachine[m.id] ?? []).filter(iv => iv.stop_reason === 'silo-empty' || iv.stop_reason === 'silo-full')"
+              :key="`lm-${iv.machine_id}-${iv.end_hr}`"
+              :style="limitMarkerStyle(iv)"
+              :title="limitMarkerTitle(iv)"
+              @mousedown.stop
+              @click.stop="trimBlockToInterval(iv)"
+            />
             <div v-if="isCreateGhostFor(m.id)" class="block ghost" :style="ghostStyle" />
           </div>
         </div>
@@ -666,6 +728,24 @@ watch(capacities, async () => {
   color: var(--color-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* Actual run intervals */
+
+.actual-interval {
+  position: absolute;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.actual-interval--clean {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    rgba(255,255,255,0.25) 3px,
+    rgba(255,255,255,0.25) 6px
+  );
 }
 
 /* Blocks */

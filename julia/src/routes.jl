@@ -133,6 +133,11 @@ function simulate_run(req::HTTP.Request, data_dir::String)
     end
 
     initial_levels = Dict{String, Float64}(string(s["id"]) => Float64(get(s, "initial_kg", 0.0)) for s in silos)
+    capacity       = Dict{String, Float64}(string(s["id"]) => Float64(get(s, "volume_kg", Inf)) for s in silos)
+    # Frontend capacity overrides (edited by the user at runtime) take precedence.
+    for (silo_id, kg) in get(body, "capacities", Dict{String,Any}())
+        capacity[string(silo_id)] = Float64(kg)
+    end
     horizon_hr     = Float64(get(body, "horizon_hr", 24.0))
 
     intakes = Intake[]
@@ -145,7 +150,12 @@ function simulate_run(req::HTTP.Request, data_dir::String)
         push!(blocks, Block(string(b["machine_id"]), string(b["mode"]), Float64(b["start_hr"]), Float64(b["end_hr"])))
     end
 
-    result = simulate(intakes, blocks, initial_levels, effects, machine_params, horizon_hr)
+    result = try
+        simulate(intakes, blocks, initial_levels, capacity, effects, machine_params, horizon_hr)
+    catch e
+        @error "simulate failed" exception=(e, catch_backtrace())
+        return json(Dict("error" => "simulation error: $(sprint(showerror, e))"), status=500)
+    end
 
     json(Dict{String, Any}(
         "snapshots" => [Dict{String, Any}(
@@ -155,6 +165,13 @@ function simulate_run(req::HTTP.Request, data_dir::String)
             "equipment_id" => s.equipment_id,
             "mode"         => s.mode,
         ) for s in result.snapshots],
+        "intervals" => [Dict{String, Any}(
+            "machine_id"  => iv.machine_id,
+            "mode"        => iv.mode,
+            "start_hr"    => iv.start_hr,
+            "end_hr"      => iv.end_hr,
+            "stop_reason" => iv.stop_reason,
+        ) for iv in result.intervals],
         "effects" => effects,
     ))
 end
