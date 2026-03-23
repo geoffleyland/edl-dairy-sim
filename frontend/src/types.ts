@@ -30,6 +30,7 @@ export interface Silo {
 
 export interface SiteConfig {
   site_name:  string
+  streams?:   Stream[]
   machines:   Machine[]
   silos:      Silo[]
   exportable: string[]

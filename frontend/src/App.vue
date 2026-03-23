@@ -4,6 +4,7 @@ import AppHeader from './components/AppHeader.vue'
 const navLinks = [
   { to: '/simulate', label: 'Simulate' },
   { to: '/yield',    label: 'Yield' },
+  { to: '/plant',    label: 'Plant' },
 ]
 </script>
 
