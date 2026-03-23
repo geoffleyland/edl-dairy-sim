@@ -1,0 +1,12 @@
+{
+  "_comment": "Overfull cream: 450t of external cream with no milk. The butter plant can process at most 15 t/hr × 24h = 360t, leaving ~90t that can't fit in the 50t cream silo. Upper-bound constraints are not enforced (overflow is reported post-solve), so the LP solves as OPTIMAL with overfull cream silo.",
+  "milk_in":   0,
+  "cream_in":  450000,
+  "prices":    { "butter": 5.0, "smp": 3.5, "bmp": 3.0 },
+  "horizon_hr": 24,
+  "expect": {
+    "status":               "OPTIMAL",
+    "outputs_positive":     ["butter"],
+    "end_level_positive":   ["cream"]
+  }
+}

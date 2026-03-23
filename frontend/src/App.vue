@@ -5,6 +5,7 @@ const navLinks = [
   { to: '/simulate', label: 'Simulate' },
   { to: '/yield',    label: 'Yield' },
   { to: '/plant',    label: 'Plant' },
+  { to: '/plan',     label: 'Plan' },
 ]
 </script>
 

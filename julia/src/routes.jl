@@ -2,6 +2,7 @@ using Oxygen, HTTP, Dates, JSON3, Yield
 
 include(joinpath(@__DIR__, "bind.jl"))
 include(joinpath(@__DIR__, "simulation.jl"))
+include(joinpath(@__DIR__, "planning.jl"))
 
 # ── Handlers ────────────────────────────────────────────────────────────────────
 
@@ -176,6 +177,98 @@ function simulate_run(req::HTTP.Request, data_dir::String)
     ))
 end
 
+# POST /plan — daily capacity planning LP.
+# Body: { process, milk_in, cream_in, prices, horizon_hr, initial_levels?, capacities? }
+#   process        — Yield.jl config dict
+#   milk_in        — kg raw milk arriving this period (default 0)
+#   cream_in       — kg cream arriving from external source (default 0)
+#   prices         — { stream_id: $/kg } for output streams (default {})
+#   horizon_hr     — planning horizon in hours (default 24)
+#   initial_levels — { silo_id: kg } overrides for silo starting levels
+#   capacities     — { silo_id: kg } overrides for silo capacities
+function plan_run(req::HTTP.Request, data_dir::String)
+    body = try
+        JSON3.read(String(req.body), Dict{String,Any})
+    catch
+        return json(Dict("error" => "invalid JSON"), status = 400)
+    end
+
+    haskey(body, "process") || return json(Dict("error" => "missing 'process'"), status = 400)
+
+    site_path = joinpath(data_dir, "site.json")
+    isfile(site_path) || return json(Dict("error" => "no site config"), status = 500)
+    site_raw = JSON3.read(read(site_path, String), Dict{String,Any})
+
+    norm(x)     = JSON3.read(JSON3.write(x), Dict{String,Any})
+    norm_vec(x) = [norm(e) for e in x]
+
+    machines = norm_vec(get(site_raw, "machines", []))
+    silos    = norm_vec(get(site_raw, "silos",    []))
+
+    process_config = norm(body["process"])
+    quantities, _ = try
+        Yield.compute(process_config)
+    catch e
+        @warn "Yield failed in plan_run" exception=(e, catch_backtrace())
+        return json(Dict("error" => "yield failed: $(sprint(showerror, e))"), status = 422)
+    end
+
+    ops_by_id = Dict{String,Dict{String,Any}}(
+        string(op["id"]) => norm(op)
+        for op in get(process_config, "operations", [])
+        if haskey(op, "id")
+    )
+    enrich_mode(mode) = let op = get(ops_by_id, string(mode["operation"]), Dict{String,Any}())
+        merge(mode, Dict{String,Any}(
+            "inputs"  => [string(s) for s in get(op, "inputs",  get(op, "input",  []))],
+            "outputs" => [string(s) for s in get(op, "outputs", get(op, "output", []))],
+        ))
+    end
+    machines = [merge(m, Dict{String,Any}("modes" => [enrich_mode(norm(mode)) for mode in m["modes"]])) for m in machines]
+
+    initial_levels = Dict{String,Float64}(string(s["id"]) => Float64(get(s, "initial_kg", 0.0)) for s in silos)
+    for (k, v) in get(body, "initial_levels", Dict{String,Any}())
+        initial_levels[string(k)] = Float64(v)
+    end
+
+    capacity = Dict{String,Float64}(string(s["id"]) => Float64(get(s, "volume_kg", Inf)) for s in silos)
+    for (k, v) in get(body, "capacities", Dict{String,Any}())
+        capacity[string(k)] = Float64(v)
+    end
+
+    external_in = Dict{String,Float64}(
+        "milk"  => Float64(get(body, "milk_in",  0.0)),
+        "cream" => Float64(get(body, "cream_in", 0.0)),
+    )
+
+    prices = Dict{String,Float64}()
+    for (k, v) in get(body, "prices", Dict{String,Any}())
+        prices[string(k)] = Float64(v)
+    end
+
+    horizon_hr = Float64(get(body, "horizon_hr", 24.0))
+
+    labels = Dict{String,String}(
+        string(s["id"]) => string(s["name"]) for s in get(site_raw, "streams", [])
+    )
+    for m in norm_vec(get(site_raw, "machines", []))
+        labels[string(m["id"])] = string(m["name"])
+    end
+
+    @info "plan request" milk_in=external_in["milk"] cream_in=external_in["cream"] horizon_hr prices
+
+    result = try
+        plan(machines, quantities, external_in, initial_levels, capacity, prices, horizon_hr; labels)
+    catch e
+        @error "plan failed" exception=(e, catch_backtrace())
+        return json(Dict("error" => "planning error: $(sprint(showerror, e))"), status = 500)
+    end
+
+    @info "plan result" status=result["status"] revenue=get(result, "revenue", nothing)
+
+    json(result)
+end
+
 # ── Route registration ──────────────────────────────────────────────────────────
 
 function register_routes(data_dir::String)
@@ -183,4 +276,5 @@ function register_routes(data_dir::String)
     @get  "/config"   req -> site_config(req, data_dir)
     @post "/yield"    yield_calc
     @post "/simulate" req -> simulate_run(req, data_dir)
+    @post "/plan"     req -> plan_run(req, data_dir)
 end

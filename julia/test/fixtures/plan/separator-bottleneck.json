@@ -1,0 +1,13 @@
+{
+  "_comment": "Separator bottleneck: 2900t milk just exceeds the separator's 24h capacity (120 t/hr × 24h = 2880t, plus 80t initial = 2960t processable before the milk silo fills). The LP should run the separator flat-out and leave ~100t in the raw milk silo.",
+  "milk_in":   2900000,
+  "cream_in":  0,
+  "prices":    { "butter": 5.0, "smp": 3.5, "bmp": 3.0 },
+  "horizon_hr": 24,
+  "expect": {
+    "status":               "OPTIMAL",
+    "outputs_positive":     ["butter", "smp", "bmp"],
+    "end_level_positive":   ["milk"],
+    "sankey_has_end_nodes": true
+  }
+}

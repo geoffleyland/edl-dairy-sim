@@ -1,0 +1,14 @@
+{
+  "_comment": "Normal operating day: 500t fresh milk, standard prices. All material should be processed — every silo drains to zero, all three products produced.",
+  "milk_in":   500000,
+  "cream_in":  0,
+  "prices":    { "butter": 5.0, "smp": 3.5, "bmp": 3.0 },
+  "horizon_hr": 24,
+  "expect": {
+    "status":             "OPTIMAL",
+    "revenue_gt":         100000,
+    "outputs_positive":   ["butter", "smp", "bmp"],
+    "end_level_zero":     ["milk", "skim", "cream", "buttermilk"],
+    "sankey_has_end_nodes": false
+  }
+}

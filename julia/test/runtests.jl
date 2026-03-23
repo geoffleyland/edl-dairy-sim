@@ -1,4 +1,4 @@
-using Test, HTTP, JSON3, Yield, DataStructures
+using Test, HTTP, JSON3, Yield, DataStructures, JuMP, HiGHS
 
 const SRC_DIR  = joinpath(@__DIR__, "..", "src")
 const TEST_DIR = @__DIR__
@@ -387,6 +387,103 @@ function run_tests()
                     write(joinpath(dir, "site.json"), JSON3.write(sep_site))
                     resp = simulate_run(post_req(Dict("horizon_hr" => 1.0)), dir)
                     @test resp.status == 400
+                end
+            end
+        end
+
+        # ── Plan fixture tests ─────────────────────────────────────────────────────
+        #
+        # Each JSON file in fixtures/plan/ describes one scenario.  The test runner
+        # loads site.json once, enriches machines from the process config, then calls
+        # plan() with the fixture's inputs and checks the fixture's `expect` block.
+        #
+        # Fixture fields:
+        #   milk_in, cream_in  — kg of external supply (default 0)
+        #   prices             — { stream_id: $/kg } (default {})
+        #   horizon_hr         — planning horizon (default 24)
+        #
+        # Expect fields (all optional):
+        #   status               — exact termination status string, e.g. "OPTIMAL"
+        #   revenue_gt           — result revenue must exceed this value
+        #   outputs_positive     — list of output stream ids that must have kg > 0
+        #   end_level_zero       — list of silo ids whose end level must be ≈ 0
+        #   end_level_positive   — list of silo ids whose end level must be > 0
+        #   sankey_has_end_nodes — bool: whether any "(end)" node exists in the sankey
+
+        @testset "plan — fixture tests" begin
+            data_dir = joinpath(@__DIR__, "..", "..", "data")
+            site_raw = JSON3.read(read(joinpath(data_dir, "site.json"), String), Dict{String,Any})
+
+            norm(x)     = JSON3.read(JSON3.write(x), Dict{String,Any})
+            norm_vec(x) = [norm(e) for e in x]
+
+            machines_raw = norm_vec(get(site_raw, "machines", []))
+            silos        = norm_vec(get(site_raw, "silos",    []))
+            process      = norm(site_raw["process"])
+
+            quantities, _ = Yield.compute(process)
+
+            ops_by_id = Dict{String,Dict{String,Any}}(
+                string(op["id"]) => norm(op)
+                for op in get(process, "operations", [])
+                if haskey(op, "id")
+            )
+            enrich_mode(mode) = let op = get(ops_by_id, string(mode["operation"]), Dict{String,Any}())
+                merge(mode, Dict{String,Any}(
+                    "inputs"  => [string(s) for s in get(op, "inputs",  get(op, "input",  []))],
+                    "outputs" => [string(s) for s in get(op, "outputs", get(op, "output", []))],
+                ))
+            end
+            machines = [
+                merge(m, Dict{String,Any}("modes" => [enrich_mode(norm(mode)) for mode in m["modes"]]))
+                for m in machines_raw
+            ]
+
+            initial_levels = Dict{String,Float64}(string(s["id"]) => Float64(get(s, "initial_kg", 0.0)) for s in silos)
+            capacity       = Dict{String,Float64}(string(s["id"]) => Float64(get(s, "volume_kg",  Inf)) for s in silos)
+
+            labels = Dict{String,String}(string(s["id"]) => string(s["name"]) for s in get(site_raw, "streams", []))
+            for m in machines_raw; labels[string(m["id"])] = string(m["name"]); end
+
+            fixture_dir = joinpath(@__DIR__, "fixtures", "plan")
+            for path in sort(readdir(fixture_dir, join = true))
+                endswith(path, ".json") || continue
+                fixture = JSON3.read(read(path, String), Dict{String,Any})
+
+                name = basename(path)
+                @testset "$name" begin
+                    external_in = Dict{String,Float64}(
+                        "milk"  => Float64(get(fixture, "milk_in",  0.0)),
+                        "cream" => Float64(get(fixture, "cream_in", 0.0)),
+                    )
+                    prices = Dict{String,Float64}(
+                        string(k) => Float64(v) for (k, v) in get(fixture, "prices", Dict{String,Any}())
+                    )
+                    horizon_hr = Float64(get(fixture, "horizon_hr", 24.0))
+
+                    result = plan(machines, quantities, external_in, initial_levels, capacity, prices, horizon_hr; labels)
+                    exp    = get(fixture, "expect", Dict{String,Any}())
+
+                    haskey(exp, "status") && @test result["status"] == string(exp["status"])
+
+                    if result["status"] == "OPTIMAL"
+                        haskey(exp, "revenue_gt") &&
+                            @test result["revenue"] > Float64(exp["revenue_gt"])
+
+                        for s in get(exp, "outputs_positive", [])
+                            @test get(result["outputs"], string(s), 0.0) > 0.0
+                        end
+                        for s in get(exp, "end_level_zero", [])
+                            @test get(result["end_levels"], string(s), -1.0) ≈ 0.0 atol = 1.0
+                        end
+                        for s in get(exp, "end_level_positive", [])
+                            @test get(result["end_levels"], string(s), 0.0) > 0.0
+                        end
+                        if haskey(exp, "sankey_has_end_nodes")
+                            has_end = any(n -> endswith(string(n["name"]), " (end)"), result["sankey"]["nodes"])
+                            @test has_end == Bool(exp["sankey_has_end_nodes"])
+                        end
+                    end
                 end
             end
         end

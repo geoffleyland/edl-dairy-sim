@@ -1,0 +1,11 @@
+{
+  "_comment": "No new intake: process only the milk already sitting in silos at start of day (site.json sets initial_kg = 80000 for the milk silo). Should be feasible and produce modest output.",
+  "milk_in":   0,
+  "cream_in":  0,
+  "prices":    { "butter": 5.0, "smp": 3.5, "bmp": 3.0 },
+  "horizon_hr": 24,
+  "expect": {
+    "status":           "OPTIMAL",
+    "outputs_positive": ["smp"]
+  }
+}

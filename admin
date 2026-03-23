@@ -35,6 +35,10 @@ case ${1:-help} in
         cd frontend && watchexec --exts ts,vue --clear -- npm test
         ;;
 
+    test)
+        julia --project=julia julia/test/runtests.jl
+        ;;
+
     test-ci)
         status=0
         julia --project=julia julia/test/runtests.jl   || status=1

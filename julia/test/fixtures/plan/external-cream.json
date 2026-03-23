@@ -1,0 +1,11 @@
+{
+  "_comment": "External cream supply: moderate milk plus 30t of cream arriving separately. The sankey should include a 'Cream supply' source node for the external cream, and the butter plant should produce more butter than it would from milk alone.",
+  "milk_in":   200000,
+  "cream_in":  30000,
+  "prices":    { "butter": 5.0, "smp": 3.5, "bmp": 3.0 },
+  "horizon_hr": 24,
+  "expect": {
+    "status":           "OPTIMAL",
+    "outputs_positive": ["butter", "smp"]
+  }
+}
