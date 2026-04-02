@@ -140,14 +140,22 @@ watch(result, async (r) => {
         fontSize: 12,
         formatter: (params: Record<string, unknown>) => {
           const name = params['name'] as string
-          const outgoing = r.sankey.links.filter(l => l.source === name)
-          if (outgoing.length === 0) {
-            const inflow = r.sankey.links
-              .filter(l => l.target === name)
-              .reduce((s, l) => s + l.value, 0)
-            return `${name}\n${(inflow / 1000).toFixed(1)} t`
-          }
-          return name
+          const node = r.sankey.nodes.find(nd => nd.name === name)
+
+          // Machine node: show hours used / available
+          if (node?.hours_avail != null)
+            return `${name}\n${node.hours_used?.toFixed(1)}h / ${node.hours_avail.toFixed(1)}h`
+
+          // Silo end node: show level / capacity
+          if (node?.capacity_t != null)
+            return `${name}\n${node.level_t?.toFixed(1)}t / ${node.capacity_t.toFixed(1)}t`
+
+          // All stream nodes: show flow in tonnes.
+          // Use outflow for sources/intermediates, inflow for pure sinks.
+          const outflow = r.sankey.links.filter(l => l.source === name).reduce((s, l) => s + l.value, 0)
+          const inflow  = r.sankey.links.filter(l => l.target === name).reduce((s, l) => s + l.value, 0)
+          const flow = outflow > 0 ? outflow : inflow
+          return `${name}\n${(flow / 1000).toFixed(1)} t`
         },
       },
     }],

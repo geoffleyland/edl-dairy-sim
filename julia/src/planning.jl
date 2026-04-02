@@ -237,8 +237,14 @@ function plan(
         end
     end
 
+    machine_avail = Dict{String,Float64}(
+        string(machine["id"]) => avail_hours(machine, horizon_hr)
+        for machine in machines
+    )
+
     sankey = build_plan_sankey(
-        mode_list, quantities, external_in, initial_levels, end_levels, x_val, labels, overfull, at_capacity
+        mode_list, quantities, external_in, initial_levels, end_levels, x_val,
+        labels, capacity, overfull, at_capacity, machine_avail
     )
 
     Dict{String,Any}(
@@ -274,8 +280,10 @@ function build_plan_sankey(
     end_levels::Dict{String,Float64},
     x_val::Vector{Float64},
     labels::Dict{String,String},
+    capacity::Dict{String,Float64},
     overfull::Set{String},          # stream ids whose end level exceeds capacity
     at_capacity::Set{String},       # machine ids running at full available hours
+    machine_avail::Dict{String,Float64},
 )::Dict{String,Any}
 
     label(id) = get(labels, id, id)
@@ -283,13 +291,20 @@ function build_plan_sankey(
     node_order = String[]
     node_set   = Set{String}()
     links      = Dict{Tuple{String,String}, Float64}()
+    node_extra = Dict{String,Dict{String,Any}}()   # extra fields merged into each node dict
 
-    add_node!(n)          = (n ∉ node_set && (push!(node_set, n); push!(node_order, n)))
-    add_link!(s, t, kg)   = begin
+    add_node!(n)        = (n ∉ node_set && (push!(node_set, n); push!(node_order, n)))
+    add_link!(s, t, kg) = begin
         kg < 0.5 && return
         add_node!(s); add_node!(t)
         key = (s, t)
         links[key] = get(links, key, 0.0) + kg
+    end
+
+    # Pre-compute total hours allocated per machine across all its modes.
+    machine_hours_used = Dict{String,Float64}()
+    for (i, (mid, _, _)) in enumerate(mode_list)
+        machine_hours_used[mid] = get(machine_hours_used, mid, 0.0) + x_val[i]
     end
 
     # Which streams does any machine produce?
@@ -310,6 +325,14 @@ function build_plan_sankey(
         driver     = inputs[1]
         driver_qty = get(quantities, driver, 1.0)
         mname      = mid ∈ at_capacity ? label(mid) * " AT CAPACITY" : label(mid)
+
+        # Annotate machine node with hours (only needs to be set once per machine).
+        if !haskey(node_extra, mname)
+            node_extra[mname] = Dict{String,Any}(
+                "hours_used"  => round(machine_hours_used[mid], digits = 1),
+                "hours_avail" => round(get(machine_avail, mid, 0.0), digits = 1),
+            )
+        end
 
         for inp in inputs
             qty_s = get(quantities, inp, 1.0)
@@ -342,6 +365,11 @@ function build_plan_sankey(
         end_kg < 0.5 && continue
         end_name = stream ∈ overfull ? label(stream) * " (end) OVERFULL" : label(stream) * " (end)"
         add_link!(label(stream), end_name, end_kg)
+        cap = get(capacity, stream, Inf)
+        node_extra[end_name] = Dict{String,Any}(
+            "level_t"    => round(end_kg / 1000, digits = 1),
+            "capacity_t" => isfinite(cap) ? round(cap / 1000, digits = 1) : nothing,
+        )
     end
 
     # Red nodes: overfull silo ends + at-capacity machines.
@@ -350,9 +378,12 @@ function build_plan_sankey(
         Set{String}(get(labels, m, m) * " AT CAPACITY"    for m in at_capacity),
     )
 
-    make_node(n) = n ∈ red_nodes ?
-        Dict{String,Any}("name" => n, "itemStyle" => Dict("color" => "#dc3545")) :
-        Dict{String,Any}("name" => n)
+    function make_node(n)
+        d = Dict{String,Any}("name" => n)
+        n ∈ red_nodes && (d["itemStyle"] = Dict("color" => "#dc3545"))
+        haskey(node_extra, n) && merge!(d, node_extra[n])
+        d
+    end
 
     Dict{String,Any}(
         "nodes" => [make_node(n) for n in node_order],

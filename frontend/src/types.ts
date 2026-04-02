@@ -39,7 +39,13 @@ export interface SiteConfig {
 
 // ── Yield ────────────────────────────────────────────────────────────────────
 
-export interface SankeyNode { name: string }
+export interface SankeyNode {
+  name:         string
+  hours_used?:  number   // machine nodes
+  hours_avail?: number
+  level_t?:     number   // silo end nodes
+  capacity_t?:  number
+}
 export interface SankeyLink { source: string; target: string; value: number; stream?: string }
 export interface SankeyData  { nodes: SankeyNode[]; links: SankeyLink[] }
 
